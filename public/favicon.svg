@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Dark background with rounded corners -->
+  <rect width="512" height="512" rx="80" ry="80" fill="#14110d"/>
+
+  <!-- Subtle warm glow in center -->
+  <radialGradient id="glow" cx="50%" cy="45%" r="45%">
+    <stop offset="0%" stop-color="#3d1e0f" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#14110d" stop-opacity="1"/>
+  </radialGradient>
+  <rect width="512" height="512" rx="80" ry="80" fill="url(#glow)"/>
+
+  <!-- Gold gradient for text -->
+  <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stop-color="#f0c060"/>
+    <stop offset="50%" stop-color="#d4882e"/>
+    <stop offset="100%" stop-color="#a05720"/>
+  </linearGradient>
+
+  <!-- SF Monogram - large bold serif letters -->
+  <text
+    x="256"
+    y="290"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="240"
+    font-weight="bold"
+    fill="url(#goldGrad)"
+    letter-spacing="-8"
+  >SF</text>
+
+  <!-- Thin divider line -->
+  <line x1="120" y1="320" x2="392" y2="320" stroke="#d4882e" stroke-width="1.5" stroke-opacity="0.6"/>
+
+  <!-- "SAGAR FURNITURE" text below -->
+  <text
+    x="256"
+    y="370"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="38"
+    font-weight="normal"
+    fill="#d4882e"
+    letter-spacing="6"
+    fill-opacity="0.85"
+  >SAGAR FURNITURE</text>
+</svg>

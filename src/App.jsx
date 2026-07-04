@@ -1,0 +1,51 @@
+import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { auth } from './firebase/config';
+import CatalogPage from './pages/CatalogPage';
+import AdminLoginPage from './pages/AdminLoginPage';
+import AdminDashboard from './components/admin/AdminDashboard';
+import useProducts from './hooks/useProducts';
+
+const AdminRoute = () => {
+  const [user, setUser] = useState(undefined); // undefined = loading
+  const { products } = useProducts();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = () => signOut(auth);
+
+  // Loading state
+  if (user === undefined) {
+    return (
+      <div className="min-h-screen bg-hero-gradient flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-wood-400/30 border-t-wood-400 rounded-full animate-spin" />
+          <p className="text-wood-300 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AdminLoginPage onLogin={() => {}} />;
+  }
+
+  return <AdminDashboard products={products} onLogout={handleLogout} userEmail={user.email} />;
+};
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<CatalogPage />} />
+        <Route path="/admin" element={<AdminRoute />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;
