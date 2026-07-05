@@ -1,13 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // 🔒 Admin check — user email must exist as a document in admin_users collection
+    function isAdmin() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/admin_users/$(request.auth.token.email));
+    }
+
+    // 📦 Products
     match /products/{productId} {
-      // ✅ Anyone can view the catalog (public read)
       allow read: if true;
-      
-      // 🔒 Only logged-in users whose emails exist in the private 'admin_users' collection can write
-      allow write: if request.auth != null && 
-                   exists(/databases/$(database)/documents/admin_users/$(request.auth.token.email));
+      allow create, delete: if isAdmin();
+      // Allow admin full update, allow anyone to increment viewCount only
+      allow update: if isAdmin() || 
+                    (request.auth == null && 
+                     request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']));
+    }
+
+    // 📂 Categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 🎯 Banners
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 🔐 Admin Users List (only admin can read/write)
+    match /admin_users/{email} {
+      allow read, write: if isAdmin();
+    }
+
+    // 📈 Website Visits (anyone can track/create, only admin can view)
+    match /visits/{visitId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
     }
   }
 }

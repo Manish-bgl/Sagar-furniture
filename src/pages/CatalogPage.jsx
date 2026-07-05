@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import HeroSection from '../components/catalog/HeroSection';
 import CategoryFilter from '../components/catalog/CategoryFilter';
 import SearchBar from '../components/catalog/SearchBar';
@@ -6,15 +6,27 @@ import ProductCard from '../components/catalog/ProductCard';
 import ProductModal from '../components/catalog/ProductModal';
 import Footer from '../components/shared/Footer';
 import useProducts from '../hooks/useProducts';
+import useCategories from '../hooks/useCategories';
+import useBanners from '../hooks/useBanners';
+import { incrementViewCount } from '../services/productService';
+import { trackVisit } from '../services/visitorService';
 
 const PRODUCTS_PER_PAGE = 50;
 
 const CatalogPage = () => {
   const { products, loading } = useProducts();
+  const { categories } = useCategories();
+  const { banners } = useBanners();
+
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Track visitor on mount
+  useEffect(() => {
+    trackVisit();
+  }, []);
 
   // Reset to page 1 when filter/search changes
   const handleCategoryChange = (cat) => {
@@ -26,6 +38,21 @@ const CatalogPage = () => {
     setSearchQuery(q);
     setCurrentPage(1);
   };
+
+  // Trigger view count increment when customer views a product modal
+  const handleViewProduct = (product) => {
+    setSelectedProduct(product);
+    try {
+      incrementViewCount(product.id);
+    } catch (e) {
+      console.error('Error incrementing view count:', e);
+    }
+  };
+
+  // Featured Products (show at top when no active search/filters)
+  const featuredProducts = useMemo(() => {
+    return products.filter((p) => p.featured).slice(0, 6);
+  }, [products]);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
@@ -70,13 +97,40 @@ const CatalogPage = () => {
     return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
   };
 
+  const showFeaturedSection = activeCategory === 'all' && !searchQuery && featuredProducts.length > 0;
+
   return (
     <div className="min-h-screen bg-wood-50 flex flex-col">
-      <HeroSection />
+      <HeroSection banners={banners} />
 
       <section id="catalog" className="flex-1 max-w-6xl mx-auto w-full px-4 py-12">
+        
+        {/* ⭐ Featured Products Showcase Section */}
+        {showFeaturedSection && (
+          <div className="mb-16">
+            <div className="text-center mb-8">
+              <span className="text-xs bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                ⭐ Handpicked Exclusives
+              </span>
+              <h2 className="section-title mt-2 mb-3">Featured Designs</h2>
+              <div className="w-12 h-1 bg-wood-500 mx-auto rounded-full" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {featuredProducts.map((product) => (
+                <ProductCard
+                  key={`featured-${product.id}`}
+                  product={product}
+                  categories={categories}
+                  onClick={handleViewProduct}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="text-center mb-10">
-          <h2 className="section-title mb-3">Our Collection</h2>
+          <h2 className="section-title mb-3">Our Complete Collection</h2>
           <p className="text-wood-600 max-w-xl mx-auto">
             Every design is crafted with the finest wood and skilled craftsmanship.
             Choose your perfect furniture.
@@ -85,7 +139,11 @@ const CatalogPage = () => {
 
         <div className="space-y-5 mb-10">
           <SearchBar value={searchQuery} onChange={handleSearchChange} />
-          <CategoryFilter activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
+          <CategoryFilter 
+            categories={categories} 
+            activeCategory={activeCategory} 
+            onCategoryChange={handleCategoryChange} 
+          />
         </div>
 
         {!loading && (
@@ -125,7 +183,8 @@ const CatalogPage = () => {
               <ProductCard
                 key={product.id}
                 product={product}
-                onClick={setSelectedProduct}
+                categories={categories}
+                onClick={handleViewProduct}
               />
             ))}
           </div>

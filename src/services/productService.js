@@ -8,6 +8,8 @@ import {
   onSnapshot,
   query,
   orderBy,
+  increment,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
@@ -63,6 +65,8 @@ export const addProduct = async (productData, imageFile) => {
     ...productData,
     imageUrl,
     imagePublicId,
+    featured: productData.featured || false,
+    viewCount: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -96,8 +100,63 @@ export const updateProduct = async (id, productData, imageFile) => {
 // -------------------------------------------------------
 export const deleteProduct = async (id) => {
   await deleteDoc(doc(db, COLLECTION, id));
-  // Note: Cloudinary image delete के लिए backend चाहिए
-  // Free plan में manually Cloudinary dashboard से delete कर सकते हैं
+};
+
+// -------------------------------------------------------
+// ⭐ Featured Toggle
+// -------------------------------------------------------
+export const toggleFeatured = async (id, currentValue) => {
+  const docRef = doc(db, COLLECTION, id);
+  await updateDoc(docRef, {
+    featured: !currentValue,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+// -------------------------------------------------------
+// 👁️ View Count Increment (customer product view)
+// -------------------------------------------------------
+export const incrementViewCount = async (id) => {
+  const docRef = doc(db, COLLECTION, id);
+  await updateDoc(docRef, {
+    viewCount: increment(1),
+  });
+};
+
+// -------------------------------------------------------
+// 📤 Bulk Add Products (from CSV)
+// -------------------------------------------------------
+export const bulkAddProducts = async (productsArray) => {
+  const batch = writeBatch(db);
+  const results = { success: 0, failed: 0 };
+
+  for (const product of productsArray) {
+    try {
+      const docRef = doc(collection(db, COLLECTION));
+      batch.set(docRef, {
+        name: product.name || '',
+        category: product.category || 'living',
+        price: product.price || '',
+        material: product.material || '',
+        dimensions: product.dimensions || '',
+        finish: product.finish || '',
+        warranty: product.warranty || '',
+        description: product.description || '',
+        imageUrl: '',
+        imagePublicId: '',
+        featured: false,
+        viewCount: 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      results.success++;
+    } catch {
+      results.failed++;
+    }
+  }
+
+  await batch.commit();
+  return results;
 };
 
 // -------------------------------------------------------

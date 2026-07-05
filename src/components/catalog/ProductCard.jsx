@@ -1,23 +1,28 @@
-const CATEGORY_LABELS = {
-  living: 'Living Room',
-  bedroom: 'Bedroom',
-  dining: 'Dining Room',
-  office: 'Office',
-};
-
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&q=80';
 
-const ProductCard = ({ product, onClick }) => {
+const ProductCard = ({ product, categories = [], onClick }) => {
   const whatsappMsg = encodeURIComponent(
     `Hello Sagar Furniture! I am interested in your *${product.name}*. Could you please share more details?`
   );
   const whatsappUrl = `https://wa.me/918476815120?text=${whatsappMsg}`;
 
+  const currentCategory = categories.find(c => c.slug === product.category);
+  const categoryLabel = currentCategory 
+    ? `${currentCategory.emoji} ${currentCategory.name}` 
+    : product.category;
+
   return (
     <div
-      className="card group cursor-pointer animate-fade-in"
+      className="card group cursor-pointer animate-fade-in relative"
       onClick={() => onClick(product)}
     >
+      {/* ⭐ Featured Badge */}
+      {product.featured && (
+        <span className="absolute top-3 right-3 z-10 bg-yellow-400 text-charcoal-900 font-bold text-xs px-2.5 py-1 rounded-lg shadow-md animate-pulse">
+          ★ FEATURED
+        </span>
+      )}
+
       {/* Product Image */}
       <div className="relative overflow-hidden h-56">
         <img
@@ -26,8 +31,8 @@ const ProductCard = ({ product, onClick }) => {
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
         />
-        <span className="absolute top-3 left-3 badge bg-charcoal-900/80 text-wood-300 backdrop-blur-sm">
-          {CATEGORY_LABELS[product.category] || product.category}
+        <span className="absolute top-3 left-3 badge bg-charcoal-900/80 text-wood-300 backdrop-blur-sm text-xs">
+          {categoryLabel}
         </span>
         <div className="absolute inset-0 bg-charcoal-900/0 group-hover:bg-charcoal-900/30 transition-all duration-300 flex items-center justify-center">
           <span className="opacity-0 group-hover:opacity-100 bg-white text-wood-800 font-semibold px-4 py-2 rounded-xl transition-all duration-300 transform translate-y-4 group-hover:translate-y-0 text-sm">

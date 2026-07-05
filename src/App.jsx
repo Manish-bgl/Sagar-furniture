@@ -6,10 +6,16 @@ import CatalogPage from './pages/CatalogPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './components/admin/AdminDashboard';
 import useProducts from './hooks/useProducts';
+import useCategories from './hooks/useCategories';
+import useBanners from './hooks/useBanners';
+import useVisits from './hooks/useVisits';
 
 const AdminRoute = () => {
   const [user, setUser] = useState(undefined); // undefined = loading
   const { products } = useProducts();
+  const { categories } = useCategories();
+  const { banners } = useBanners();
+  const { stats: visitsStats } = useVisits();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
@@ -49,7 +55,16 @@ const AdminRoute = () => {
     return <AdminLoginPage onLogin={() => {}} />;
   }
 
-  return <AdminDashboard products={products} onLogout={handleLogout} userEmail={user.email} />;
+  return (
+    <AdminDashboard 
+      products={products} 
+      categories={categories} 
+      banners={banners} 
+      visitsStats={visitsStats}
+      onLogout={handleLogout} 
+      userEmail={user.email} 
+    />
+  );
 };
 
 function App() {
