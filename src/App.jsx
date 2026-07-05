@@ -12,7 +12,22 @@ const AdminRoute = () => {
   const { products } = useProducts();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => setUser(u));
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        // Read allowed email from env configuration (hidden from GitHub)
+        const allowedEmail = import.meta.env.VITE_ALLOWED_ADMIN_EMAIL;
+        const isAuthorized = u.email === allowedEmail;
+                             
+        if (!isAuthorized) {
+          await signOut(auth);
+          setUser(null);
+        } else {
+          setUser(u);
+        }
+      } else {
+        setUser(null);
+      }
+    });
     return () => unsubscribe();
   }, []);
 

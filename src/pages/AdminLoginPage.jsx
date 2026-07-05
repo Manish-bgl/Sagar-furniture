@@ -14,8 +14,22 @@ const AdminLoginPage = ({ onLogin }) => {
     setError('');
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      onLogin();
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // ✅ Check if the logged-in email belongs to Sagar Furniture Manager
+      const allowedEmail = import.meta.env.VITE_ALLOWED_ADMIN_EMAIL;
+      const isAuthorized = user.email === allowedEmail;
+      
+      if (!isAuthorized) {
+        // Kick out unauthorized users
+        const { signOut } = await import('firebase/auth');
+        await signOut(auth);
+        setError('Unauthorized: This email does not have Manager access.');
+        setLoading(false);
+      } else {
+        onLogin();
+      }
     } catch (err) {
       setError('Invalid email or password. Please try again.');
       setLoading(false);
