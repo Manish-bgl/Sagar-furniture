@@ -106,8 +106,10 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
                 className="w-full h-full object-cover transition-opacity duration-300"
                 onError={e => { e.target.src = PLACEHOLDER_IMAGE; }}
               />
+              {/* 🛡️ Transparent protection overlay */}
+              <div className="absolute inset-0 z-10 select-none" />
               {/* Zoom hint */}
-              <div className="absolute bottom-3 left-3 bg-charcoal-900/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none select-none">
+              <div className="absolute bottom-3 left-3 bg-charcoal-900/60 backdrop-blur-sm text-white text-[10px] px-2.5 py-1 rounded-lg pointer-events-none select-none z-20">
                 🔍 Click photo to enlarge
               </div>
             </div>
@@ -119,11 +121,13 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
                   <button
                     key={idx}
                     onClick={() => setActiveImageIdx(idx)}
-                    className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0
+                    className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 relative
                       ${activeImageIdx === idx ? 'border-wood-400 scale-105 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'}`}
                   >
                     <img src={img} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover"
                       onError={e => { e.target.src = PLACEHOLDER_IMAGE; }} />
+                    {/* 🛡️ Transparent protection overlay */}
+                    <div className="absolute inset-0 select-none z-10" />
                   </button>
                 ))}
               </div>
@@ -233,14 +237,18 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
                     <div
                       key={p.id}
                       onClick={() => onProductSelect && onProductSelect(p)}
-                      className="border border-wood-100 rounded-xl overflow-hidden cursor-pointer hover:border-wood-300 hover:-translate-y-0.5 transition-all duration-200 group"
+                      className="border border-wood-100 rounded-xl overflow-hidden cursor-pointer hover:border-wood-300 hover:-translate-y-0.5 transition-all duration-200 group relative"
                     >
-                      <img
-                        src={p.imageUrls?.[0] || p.imageUrl || PLACEHOLDER_IMAGE}
-                        alt={p.name}
-                        className="w-full h-20 object-cover"
-                        onError={e => { e.target.src = PLACEHOLDER_IMAGE; }}
-                      />
+                      <div className="relative h-20 w-full overflow-hidden">
+                        <img
+                          src={p.imageUrls?.[0] || p.imageUrl || PLACEHOLDER_IMAGE}
+                          alt={p.name}
+                          className="w-full h-full object-cover"
+                          onError={e => { e.target.src = PLACEHOLDER_IMAGE; }}
+                        />
+                        {/* 🛡️ Transparent protection overlay */}
+                        <div className="absolute inset-0 z-10 select-none" />
+                      </div>
                       <div className="p-2">
                         <p className="font-semibold text-charcoal-900 text-[11px] truncate">{p.name}</p>
                         {p.price && <p className="text-wood-600 text-[10px] mt-0.5">₹ {p.price}</p>}
@@ -260,13 +268,16 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
           className="fixed inset-0 z-[60] bg-charcoal-950/95 flex items-center justify-center animate-fade-in"
           onClick={() => setLightboxOpen(false)}
         >
-          <img
-            src={activeImage}
-            alt={product.name}
-            className="max-w-full max-h-full object-contain p-4 rounded-xl select-none"
-            onClick={e => e.stopPropagation()}
-            onError={e => { e.target.src = PLACEHOLDER_IMAGE; }}
-          />
+          <div className="relative max-w-full max-h-full p-4 flex items-center justify-center" onClick={e => e.stopPropagation()}>
+            <img
+              src={activeImage}
+              alt={product.name}
+              className="max-w-full max-h-full object-contain rounded-xl select-none"
+              onError={e => { e.target.src = PLACEHOLDER_IMAGE; }}
+            />
+            {/* 🛡️ Transparent protection overlay */}
+            <div className="absolute inset-0 select-none z-10" />
+          </div>
 
           {/* Lightbox nav arrows */}
           {images.length > 1 && (

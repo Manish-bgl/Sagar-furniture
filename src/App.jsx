@@ -68,6 +68,64 @@ const AdminRoute = () => {
 };
 
 function App() {
+  useEffect(() => {
+    // 1. Disable Right Click context menu
+    const preventContextMenu = (e) => {
+      e.preventDefault();
+    };
+    document.addEventListener('contextmenu', preventContextMenu);
+
+    // 2. Disable Keyboard Shortcuts (Ctrl+C, Ctrl+S, Ctrl+P, F12, inspect tools)
+    const handleKeyDown = (e) => {
+      if (
+        e.key === 'F12' ||
+        // Ctrl+Shift+I / J / C (Dev tools)
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+        // Command+Option+I / J / C (Mac Dev tools)
+        (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+        // Ctrl+U (View Source)
+        (e.ctrlKey && (e.key === 'U' || e.key === 'u')) ||
+        // Ctrl+S / Cmd+S (Save page)
+        ((e.ctrlKey || e.metaKey) && (e.key === 'S' || e.key === 's')) ||
+        // Ctrl+P / Cmd+P (Print page)
+        ((e.ctrlKey || e.metaKey) && (e.key === 'P' || e.key === 'p')) ||
+        // Ctrl+C / Cmd+C (Copy)
+        ((e.ctrlKey || e.metaKey) && (e.key === 'C' || e.key === 'c'))
+      ) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    // 3. Clear Clipboard on PrintScreen keyup event
+    const handleKeyUp = async (e) => {
+      if (e.key === 'PrintScreen' || e.key === 'PrtScn') {
+        try {
+          await navigator.clipboard.writeText('Screenshots of products are restricted for safety.');
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('keyup', handleKeyUp);
+
+    // 4. Blur page when window loses focus (Snipping tool / screenshot capture mode triggers blur)
+    const handleBlur = () => {
+      document.getElementById('root')?.classList.add('screen-blur');
+    };
+    const handleFocus = () => {
+      document.getElementById('root')?.classList.remove('screen-blur');
+    };
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('contextmenu', preventContextMenu);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>

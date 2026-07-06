@@ -50,6 +50,8 @@ const ProductCard = ({ product, categories = [], onClick }) => {
           className="w-full h-full object-cover transition-opacity duration-300"
           onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
         />
+        {/* 🛡️ Transparent protection overlay (blocks context menu / saving) */}
+        <div className="absolute inset-0 z-10 select-none" />
 
         {/* Category label pill */}
         <span className="absolute top-3 left-3 bg-charcoal-900/75 text-white backdrop-blur-sm text-[10px] font-semibold px-2.5 py-1 rounded-lg">

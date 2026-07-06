@@ -150,3 +150,42 @@
     min-height: -webkit-fill-available;
   }
 }
+
+/* ──────────────────────────────────────────────────────────
+   🛡️ SAGAR FURNITURE PRODUCT PROTECTION & ANTI-SCREENSHOT STYLES
+   ────────────────────────────────────────────────────────── */
+
+/* 1. Prevent Right-Click & Dragging directly on Images */
+img {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  -webkit-user-drag: none !important;
+  user-drag: none !important;
+  pointer-events: none !important; /* Forces selecting parent overlay instead of image */
+}
+
+/* 2. Global text selection prevention on catalog elements */
+.no-select {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* 3. Screen Blur for Snipping Tool / Focus Loss (PrintScreen protection) */
+.screen-blur {
+  filter: blur(25px) !important;
+  opacity: 0.1 !important;
+  transition: filter 0.15s ease, opacity 0.15s ease !important;
+}
+
+/* 4. Disable Print completely (Prevents printing/saving to PDF) */
+@media print {
+  html, body {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
+
