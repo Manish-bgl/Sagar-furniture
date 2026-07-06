@@ -49,22 +49,33 @@ export const uploadImage = async (file) => {
 };
 
 // -------------------------------------------------------
-// ➕ नया Product Firestore में Add करें
+// ➕ नया Product Firestore में Add करें (Supports up to 3 images)
 // -------------------------------------------------------
-export const addProduct = async (productData, imageFile) => {
-  let imageUrl = '';
-  let imagePublicId = '';
+export const addProduct = async (productData, imageFiles = []) => {
+  const imageUrls = [];
+  const imagePublicIds = [];
 
-  if (imageFile) {
-    const result = await uploadImage(imageFile);
-    imageUrl = result.url;
-    imagePublicId = result.publicId;
+  if (imageFiles && imageFiles.length > 0) {
+    const uploadPromises = imageFiles.map(async (file) => {
+      if (!file) return null;
+      return await uploadImage(file);
+    });
+
+    const results = await Promise.all(uploadPromises);
+    results.forEach((res) => {
+      if (res) {
+        imageUrls.push(res.url);
+        imagePublicIds.push(res.publicId);
+      }
+    });
   }
 
   const docRef = await addDoc(collection(db, COLLECTION), {
     ...productData,
-    imageUrl,
-    imagePublicId,
+    imageUrl: imageUrls[0] || '', // Fallback first image for backwards compatibility
+    imagePublicId: imagePublicIds[0] || '',
+    imageUrls,
+    imagePublicIds,
     featured: productData.featured || false,
     viewCount: 0,
     createdAt: serverTimestamp(),
@@ -74,23 +85,39 @@ export const addProduct = async (productData, imageFile) => {
 };
 
 // -------------------------------------------------------
-// ✏️ Product Update करें
+// ✏️ Product Update करें (Supports up to 3 images)
 // -------------------------------------------------------
-export const updateProduct = async (id, productData, imageFile) => {
-  let imageUrl = productData.imageUrl || '';
-  let imagePublicId = productData.imagePublicId || '';
+export const updateProduct = async (id, productData, imageFiles = [], existingImages = []) => {
+  const imageUrls = [...existingImages];
+  const imagePublicIds = [...(productData.imagePublicIds || [])];
 
-  if (imageFile) {
-    const result = await uploadImage(imageFile);
-    imageUrl = result.url;
-    imagePublicId = result.publicId;
+  if (imageFiles && imageFiles.length > 0) {
+    const uploadPromises = imageFiles.map(async (file, idx) => {
+      if (!file) return null;
+      const res = await uploadImage(file);
+      return { res, idx };
+    });
+
+    const results = await Promise.all(uploadPromises);
+    results.forEach((item) => {
+      if (item && item.res) {
+        imageUrls[item.idx] = item.res.url;
+        imagePublicIds[item.idx] = item.res.publicId;
+      }
+    });
   }
+
+  // Filter out any empty spaces in urls
+  const cleanImageUrls = imageUrls.filter(Boolean);
+  const cleanImagePublicIds = imagePublicIds.filter(Boolean);
 
   const docRef = doc(db, COLLECTION, id);
   await updateDoc(docRef, {
     ...productData,
-    imageUrl,
-    imagePublicId,
+    imageUrl: cleanImageUrls[0] || '', // Fallback first image
+    imagePublicId: cleanImagePublicIds[0] || '',
+    imageUrls: cleanImageUrls,
+    imagePublicIds: cleanImagePublicIds,
     updatedAt: serverTimestamp(),
   });
 };

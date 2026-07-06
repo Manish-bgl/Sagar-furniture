@@ -28,6 +28,20 @@ const CatalogPage = () => {
     trackVisit();
   }, []);
 
+  // Listen for products load to trigger deep linking
+  useEffect(() => {
+    if (!loading && products.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const productId = params.get('product');
+      if (productId) {
+        const found = products.find(p => p.id === productId);
+        if (found) {
+          setSelectedProduct(found);
+        }
+      }
+    }
+  }, [loading, products]);
+
   // Reset to page 1 when filter/search changes
   const handleCategoryChange = (cat) => {
     setActiveCategory(cat);
@@ -39,9 +53,14 @@ const CatalogPage = () => {
     setCurrentPage(1);
   };
 
-  // Trigger view count increment when customer views a product modal
+  // Trigger view count increment and url updates
   const handleViewProduct = (product) => {
     setSelectedProduct(product);
+    
+    // Update deep link query parameter in browser URL address bar
+    const newUrl = `${window.location.pathname}?product=${product.id}`;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+
     try {
       incrementViewCount(product.id);
     } catch (e) {
@@ -49,9 +68,21 @@ const CatalogPage = () => {
     }
   };
 
+  const handleCloseModal = () => {
+    setSelectedProduct(null);
+    // Clear deep link query parameter
+    const newUrl = window.location.pathname;
+    window.history.pushState({ path: newUrl }, '', newUrl);
+  };
+
   // Featured Products (show at top when no active search/filters)
   const featuredProducts = useMemo(() => {
     return products.filter((p) => p.featured).slice(0, 6);
+  }, [products]);
+
+  // Recently Uploaded Products (show top 3 newest products)
+  const recentlyAddedProducts = useMemo(() => {
+    return products.slice(0, 3);
   }, [products]);
 
   const filteredProducts = useMemo(() => {
@@ -98,6 +129,7 @@ const CatalogPage = () => {
   };
 
   const showFeaturedSection = activeCategory === 'all' && !searchQuery && featuredProducts.length > 0;
+  const showRecentSection = activeCategory === 'all' && !searchQuery && recentlyAddedProducts.length > 0;
 
   return (
     <div className="min-h-screen bg-wood-50 flex flex-col">
@@ -107,7 +139,7 @@ const CatalogPage = () => {
         
         {/* ⭐ Featured Products Showcase Section */}
         {showFeaturedSection && (
-          <div className="mb-16">
+          <div className="mb-16 animate-fade-in">
             <div className="text-center mb-8">
               <span className="text-xs bg-yellow-100 text-yellow-700 font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                 ⭐ Handpicked Exclusives
@@ -244,6 +276,30 @@ const CatalogPage = () => {
             </p>
           </div>
         )}
+
+        {/* 🆕 Newly Uploaded Products Section */}
+        {showRecentSection && (
+          <div className="mt-20 border-t border-wood-200 pt-12 animate-fade-in">
+            <div className="text-center mb-8">
+              <span className="text-xs bg-wood-100 text-wood-700 font-semibold px-3 py-1 rounded-full uppercase tracking-wider">
+                🆕 New Arrivals
+              </span>
+              <h2 className="section-title mt-2 mb-3">Recently Added</h2>
+              <div className="w-12 h-1 bg-wood-400 mx-auto rounded-full" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {recentlyAddedProducts.map((product) => (
+                <ProductCard
+                  key={`recent-${product.id}`}
+                  product={product}
+                  categories={categories}
+                  onClick={handleViewProduct}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       <Footer />
@@ -251,7 +307,10 @@ const CatalogPage = () => {
       {selectedProduct && (
         <ProductModal
           product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
+          products={products}
+          categories={categories}
+          onClose={handleCloseModal}
+          onProductSelect={handleViewProduct}
         />
       )}
     </div>

@@ -90,8 +90,8 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState('');
+  const [imageFiles, setImageFiles] = useState([null, null, null]);
+  const [imagePreviews, setImagePreviews] = useState(['', '', '']);
   const [loading, setLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [toast, setToast] = useState('');
@@ -148,9 +148,27 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   // ---- Product handlers ----
-  const handleImageChange = (e) => {
+  const handleImageChange = (e, idx) => {
     const file = e.target.files[0];
-    if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)); }
+    if (file) {
+      const newFiles = [...imageFiles];
+      newFiles[idx] = file;
+      setImageFiles(newFiles);
+
+      const newPreviews = [...imagePreviews];
+      newPreviews[idx] = URL.createObjectURL(file);
+      setImagePreviews(newPreviews);
+    }
+  };
+
+  const handleRemoveImage = (idx) => {
+    const newFiles = [...imageFiles];
+    newFiles[idx] = null;
+    setImageFiles(newFiles);
+
+    const newPreviews = [...imagePreviews];
+    newPreviews[idx] = '';
+    setImagePreviews(newPreviews);
   };
 
   const handleEdit = (product) => {
@@ -161,8 +179,17 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
       dimensions: product.dimensions || '', finish: product.finish || '',
       warranty: product.warranty || '', description: product.description || '',
     });
-    setImagePreview(product.imageUrl || '');
-    setImageFile(null);
+    
+    // Load existing images (or fallback to imageUrl)
+    const urls = product.imageUrls && product.imageUrls.length > 0
+      ? product.imageUrls
+      : (product.imageUrl ? [product.imageUrl] : []);
+      
+    // Fill up to 3 slots
+    const paddedPreviews = [...urls, '', '', ''].slice(0, 3);
+    setImagePreviews(paddedPreviews);
+    setImageFiles([null, null, null]);
+    
     setShowForm(true);
     setActiveTab('products');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -173,14 +200,17 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
     setLoading(true);
     try {
       if (editingProduct) {
-        await updateProduct(editingProduct.id, form, imageFile);
+        await updateProduct(editingProduct.id, form, imageFiles, imagePreviews);
         showToast('✅ Product updated successfully!');
       } else {
-        await addProduct(form, imageFile);
+        await addProduct(form, imageFiles);
         showToast('✅ New product added!');
       }
-      setForm(EMPTY_FORM); setImageFile(null); setImagePreview('');
-      setEditingProduct(null); setShowForm(false);
+      setForm(EMPTY_FORM); 
+      setImageFiles([null, null, null]); 
+      setImagePreviews(['', '', '']);
+      setEditingProduct(null); 
+      setShowForm(false);
     } catch (err) { showToast('❌ Error: ' + err.message); }
     finally { setLoading(false); }
   };
@@ -533,23 +563,43 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                   </div>
                   <div>
                     <label className="block text-wood-700 text-sm font-medium mb-2">
-                      Upload Photo <span className="ml-2 text-xs text-wood-400 font-normal">(Cloudinary — Free Storage)</span>
+                      Product Photos <span className="ml-2 text-xs text-wood-400 font-normal">(Up to 3 images — Cloudinary Free Storage)</span>
                     </label>
-                    <div className="flex items-start gap-4">
-                      <label className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-wood-300 rounded-xl p-6 cursor-pointer hover:border-wood-500 hover:bg-wood-50 transition-all">
-                        <svg className="w-8 h-8 text-wood-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span className="text-wood-500 text-sm text-center">
-                          {imageFile ? `✅ ${imageFile.name}` : 'Choose photo or take from Camera'}
-                        </span>
-                        <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                      </label>
-                      {imagePreview && (
-                        <img src={imagePreview} alt="preview" className="w-24 h-24 object-cover rounded-xl border-2 border-wood-200" />
-                      )}
+                    <div className="grid grid-cols-3 gap-3">
+                      {[0, 1, 2].map((idx) => (
+                        <div key={idx} className="relative">
+                          {imagePreviews[idx] ? (
+                            <div className="relative h-28 rounded-xl overflow-hidden border-2 border-wood-300 group">
+                              <img src={imagePreviews[idx]} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-charcoal-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <label className="cursor-pointer bg-white/90 text-wood-800 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-white transition-colors">
+                                  Change
+                                  <input type="file" accept="image/*" onChange={(e) => handleImageChange(e, idx)} className="hidden" />
+                                </label>
+                                <button type="button" onClick={() => handleRemoveImage(idx)}
+                                  className="bg-red-500/90 text-white text-xs font-semibold px-2 py-1 rounded-lg hover:bg-red-600 transition-colors">
+                                  ✕
+                                </button>
+                              </div>
+                              <span className="absolute top-1.5 left-1.5 bg-charcoal-900/70 text-white text-[10px] px-1.5 py-0.5 rounded-md">
+                                {idx === 0 ? 'Main' : `Photo ${idx + 1}`}
+                              </span>
+                            </div>
+                          ) : (
+                            <label className="flex flex-col items-center justify-center h-28 border-2 border-dashed border-wood-200 rounded-xl cursor-pointer hover:border-wood-400 hover:bg-wood-50 transition-all">
+                              <svg className="w-6 h-6 text-wood-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                              <span className="text-wood-400 text-[10px] text-center font-medium">
+                                {idx === 0 ? '+ Main Photo' : `+ Photo ${idx + 1}`}
+                              </span>
+                              <input type="file" accept="image/*" onChange={(e) => handleImageChange(e, idx)} className="hidden" />
+                            </label>
+                          )}
+                        </div>
+                      ))}
                     </div>
+                    <p className="text-wood-400 text-[10px] mt-1.5">First photo is the main display image. Customers can browse all 3 photos in the product modal.</p>
                   </div>
                   <div className="flex gap-3 pt-1">
                     <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2 disabled:opacity-70">
