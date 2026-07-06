@@ -238,7 +238,7 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
                       <img
                         src={p.imageUrls?.[0] || p.imageUrl || PLACEHOLDER_IMAGE}
                         alt={p.name}
-                        className="w-full h-20 object-cover group-hover:scale-105 transition-transform duration-300"
+                        className="w-full h-20 object-cover"
                         onError={e => { e.target.src = PLACEHOLDER_IMAGE; }}
                       />
                       <div className="p-2">

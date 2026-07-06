@@ -92,6 +92,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
   const [form, setForm] = useState(EMPTY_FORM);
   const [imageFiles, setImageFiles] = useState([null, null, null]);
   const [imagePreviews, setImagePreviews] = useState(['', '', '']);
+  const [imagePublicIds, setImagePublicIds] = useState(['', '', '']);
   const [loading, setLoading] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [toast, setToast] = useState('');
@@ -158,6 +159,11 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
       const newPreviews = [...imagePreviews];
       newPreviews[idx] = URL.createObjectURL(file);
       setImagePreviews(newPreviews);
+
+      // Clear the public ID of this slot since a new file is uploaded
+      const newPublicIds = [...imagePublicIds];
+      newPublicIds[idx] = '';
+      setImagePublicIds(newPublicIds);
     }
   };
 
@@ -169,6 +175,10 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
     const newPreviews = [...imagePreviews];
     newPreviews[idx] = '';
     setImagePreviews(newPreviews);
+
+    const newPublicIds = [...imagePublicIds];
+    newPublicIds[idx] = '';
+    setImagePublicIds(newPublicIds);
   };
 
   const handleEdit = (product) => {
@@ -188,6 +198,14 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
     // Fill up to 3 slots
     const paddedPreviews = [...urls, '', '', ''].slice(0, 3);
     setImagePreviews(paddedPreviews);
+
+    // Load existing public IDs
+    const publicIds = product.imagePublicIds && product.imagePublicIds.length > 0
+      ? product.imagePublicIds
+      : (product.imagePublicId ? [product.imagePublicId] : []);
+    const paddedPublicIds = [...publicIds, '', '', ''].slice(0, 3);
+    setImagePublicIds(paddedPublicIds);
+
     setImageFiles([null, null, null]);
     
     setShowForm(true);
@@ -200,7 +218,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
     setLoading(true);
     try {
       if (editingProduct) {
-        await updateProduct(editingProduct.id, form, imageFiles, imagePreviews);
+        await updateProduct(editingProduct.id, form, imageFiles, imagePreviews, imagePublicIds);
         showToast('✅ Product updated successfully!');
       } else {
         await addProduct(form, imageFiles);
@@ -209,6 +227,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
       setForm(EMPTY_FORM); 
       setImageFiles([null, null, null]); 
       setImagePreviews(['', '', '']);
+      setImagePublicIds(['', '', '']);
       setEditingProduct(null); 
       setShowForm(false);
     } catch (err) { showToast('❌ Error: ' + err.message); }
@@ -405,7 +424,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
             <p className="text-wood-100/50 text-xs">{userEmail} · {products.length} Products</p>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => { setEditingProduct(null); setForm(EMPTY_FORM); setImagePreview(''); setImageFile(null); setShowForm(true); setActiveTab('products'); }}
+            <button onClick={() => { setEditingProduct(null); setForm(EMPTY_FORM); setImagePreviews(['', '', '']); setImageFiles([null, null, null]); setImagePublicIds(['', '', '']); setShowForm(true); setActiveTab('products'); }}
               className="btn-primary text-sm px-4 py-2">+ Add Product</button>
             <button onClick={onLogout} className="text-wood-300/70 hover:text-wood-300 text-sm transition-colors">Logout</button>
           </div>
@@ -572,10 +591,10 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                             <div className="relative h-28 rounded-xl overflow-hidden border-2 border-wood-300 group">
                               <img src={imagePreviews[idx]} alt={`Preview ${idx + 1}`} className="w-full h-full object-cover" />
                               <div className="absolute inset-0 bg-charcoal-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                <label className="cursor-pointer bg-white/90 text-wood-800 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-white transition-colors">
+                                <label htmlFor={`file-change-${idx}`} className="cursor-pointer bg-white/90 text-wood-800 text-xs font-semibold px-2 py-1 rounded-lg hover:bg-white transition-colors">
                                   Change
-                                  <input type="file" accept="image/*" onChange={(e) => handleImageChange(e, idx)} className="hidden" />
                                 </label>
+                                <input id={`file-change-${idx}`} type="file" accept="image/*" onChange={(e) => handleImageChange(e, idx)} className="hidden" />
                                 <button type="button" onClick={() => handleRemoveImage(idx)}
                                   className="bg-red-500/90 text-white text-xs font-semibold px-2 py-1 rounded-lg hover:bg-red-600 transition-colors">
                                   ✕
@@ -586,15 +605,17 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                               </span>
                             </div>
                           ) : (
-                            <label className="flex flex-col items-center justify-center h-28 border-2 border-dashed border-wood-200 rounded-xl cursor-pointer hover:border-wood-400 hover:bg-wood-50 transition-all">
-                              <svg className="w-6 h-6 text-wood-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                              </svg>
-                              <span className="text-wood-400 text-[10px] text-center font-medium">
-                                {idx === 0 ? '+ Main Photo' : `+ Photo ${idx + 1}`}
-                              </span>
-                              <input type="file" accept="image/*" onChange={(e) => handleImageChange(e, idx)} className="hidden" />
-                            </label>
+                            <>
+                              <label htmlFor={`file-input-${idx}`} className="flex flex-col items-center justify-center h-28 border-2 border-dashed border-wood-200 rounded-xl cursor-pointer hover:border-wood-400 hover:bg-wood-50 transition-all">
+                                <svg className="w-6 h-6 text-wood-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span className="text-wood-400 text-[10px] text-center font-medium">
+                                  {idx === 0 ? '+ Main Photo' : `+ Photo ${idx + 1}`}
+                                </span>
+                              </label>
+                              <input id={`file-input-${idx}`} type="file" accept="image/*" onChange={(e) => handleImageChange(e, idx)} className="hidden" />
+                            </>
                           )}
                         </div>
                       ))}
@@ -807,11 +828,11 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                 <div>
                   <label className="block text-wood-700 text-sm font-medium mb-2">Banner Image</label>
                   <div className="flex items-start gap-4">
-                    <label className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-wood-300 rounded-xl p-6 cursor-pointer hover:border-wood-500 transition-all">
+                    <label htmlFor="banner-file-input" className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-wood-300 rounded-xl p-6 cursor-pointer hover:border-wood-500 transition-all">
                       <span className="text-3xl mb-2">🖼️</span>
                       <span className="text-wood-500 text-sm">{bannerImageFile ? `✅ ${bannerImageFile.name}` : 'Choose banner image (1200×400 recommended)'}</span>
-                      <input type="file" accept="image/*" onChange={handleBannerImageChange} className="hidden" />
                     </label>
+                    <input id="banner-file-input" type="file" accept="image/*" onChange={handleBannerImageChange} className="hidden" />
                     {bannerImagePreview && (
                       <img src={bannerImagePreview} alt="preview" className="w-40 h-20 object-cover rounded-xl border-2 border-wood-200" />
                     )}
