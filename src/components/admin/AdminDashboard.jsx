@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 import { addProduct, updateProduct, deleteProduct, toggleFeatured, bulkAddProducts } from '../../services/productService';
 import { addCategory, updateCategory, deleteCategory, seedDefaultCategories } from '../../services/categoryService';
 import { addBanner, updateBanner, deleteBanner, toggleBannerActive } from '../../services/bannerService';
@@ -115,6 +116,14 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
   const [excelFileName, setExcelFileName] = useState('');
   const [bulkUploading, setBulkUploading] = useState(false);
   const [bulkResult, setBulkResult] = useState(null);
+
+  // ZIP Bulk upload state
+  const [zipFileName, setZipFileName] = useState('');
+  const [productsToImport, setProductsToImport] = useState([]);
+  const [importingZip, setImportingZip] = useState(false);
+  const [importProgress, setImportProgress] = useState({ total: 0, current: 0, success: 0, failed: 0 });
+  const [failedImportRows, setFailedImportRows] = useState([]);
+  const [importSummary, setImportSummary] = useState({ show: false, total: 0, success: 0, failed: 0 });
 
   // Filtering & traffic details modal states
   const [filterFeaturedOnly, setFilterFeaturedOnly] = useState(false);
@@ -387,6 +396,247 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
     }
   };
 
+  // ---- ZIP Bulk Import handlers ----
+  const handleZipUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setZipFileName(file.name);
+    setProductsToImport([]);
+    setFailedImportRows([]);
+    setImportSummary({ show: false, total: 0, success: 0, failed: 0 });
+
+    setLoading(true);
+    try {
+      const zip = await JSZip.loadAsync(file);
+      
+      // Find products.xlsx or products.xls in the zip (case insensitive, matches anywhere)
+      const excelFileKey = Object.keys(zip.files).find(
+        (name) => name.toLowerCase().endsWith('products.xlsx') || name.toLowerCase().endsWith('products.xls')
+      );
+      
+      if (!excelFileKey) {
+        throw new Error('Could not find products.xlsx or products.xls inside the ZIP file.');
+      }
+      
+      // Read Excel as ArrayBuffer
+      const excelBuffer = await zip.files[excelFileKey].async('arraybuffer');
+      const workbook = XLSX.read(excelBuffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rawData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      
+      if (rawData.length < 2) {
+        throw new Error('Excel file must have a header row and at least 1 row of data.');
+      }
+      
+      const headers = rawData[0].map(h => String(h || '').trim().toLowerCase());
+      
+      // Gather all images from the zip (resilient: matches in folders or root)
+      const imageFiles = {}; // filename (lowercase) -> { blob, originalName }
+      const zipKeys = Object.keys(zip.files);
+      
+      for (const key of zipKeys) {
+        if (zip.files[key].dir) continue;
+        const lastSlashIdx = key.lastIndexOf('/');
+        const filename = (lastSlashIdx >= 0 ? key.substring(lastSlashIdx + 1) : key).trim().toLowerCase();
+        
+        // Accept common image extensions
+        if (filename.match(/\.(jpg|jpeg|png|webp|gif|bmp)$/i)) {
+          const blob = await zip.files[key].async('blob');
+          imageFiles[filename] = {
+            blob,
+            originalName: lastSlashIdx >= 0 ? key.substring(lastSlashIdx + 1) : key
+          };
+        }
+      }
+      
+      const rows = [];
+      const nameCountMap = {}; // duplicate check within sheet
+      
+      // First pass: extract and count names for duplicate check
+      for (let i = 1; i < rawData.length; i++) {
+        const vals = rawData[i];
+        if (!vals || vals.length === 0) continue;
+        
+        const row = {};
+        headers.forEach((h, idx) => {
+          row[h] = vals[idx] !== undefined ? String(vals[idx]).trim() : '';
+        });
+        
+        // Match spreadsheet fields (supports different header casings/spellings)
+        const name = row['product name'] || row['name'] || row['title'] || '';
+        const category = row['category'] || row['cat'] || '';
+        const price = row['price'] || row['rate'] || '';
+        const material = row['material'] || row['wood'] || '';
+        const dimensions = row['dimensions'] || row['size'] || '';
+        const finish = row['polish / finish'] || row['finish'] || row['polish'] || '';
+        const warranty = row['warranty'] || '';
+        const description = row['description'] || row['desc'] || '';
+        const imageFilename = row['image'] || row['image_filename'] || row['filename'] || row['photo'] || '';
+        
+        if (!name && !category && !price) continue; // Skip empty rows
+        
+        const keyName = name.toLowerCase().trim();
+        if (keyName) {
+          nameCountMap[keyName] = (nameCountMap[keyName] || 0) + 1;
+        }
+        
+        rows.push({
+          rowNumber: i + 1,
+          name: name.trim(),
+          category: category.trim(),
+          price: price.trim(),
+          material: material.trim(),
+          dimensions: dimensions.trim(),
+          finish: finish.trim(),
+          warranty: warranty.trim(),
+          description: description.trim(),
+          imageFilename: imageFilename.trim(),
+        });
+      }
+      
+      const parsedProducts = [];
+      
+      // Second pass: validate fields
+      for (const row of rows) {
+        const errors = [];
+        
+        // 1. Required field validation
+        if (!row.name) {
+          errors.push('Product name is required');
+        }
+        if (!row.category) {
+          errors.push('Category is required');
+        } else {
+          // Normalize and resolve category name/slug
+          const catClean = row.category.toLowerCase().trim();
+          const matchedCat = categories.find(c => 
+            c.slug === catClean || 
+            c.name.toLowerCase().trim() === catClean
+          );
+          if (matchedCat) {
+            row.category = matchedCat.slug; // Standardize to slug
+          } else {
+            errors.push(`Category "${row.category}" is not configured in the system`);
+          }
+        }
+        
+        // 2. Duplicate validation within file
+        if (row.name && nameCountMap[row.name.toLowerCase().trim()] > 1) {
+          errors.push('Duplicate product name found inside this Excel sheet');
+        }
+        
+        // 3. Image validation
+        const cleanImgName = row.imageFilename.toLowerCase().trim();
+        let imageBlob = null;
+        let imageStatus = 'Not Provided';
+        
+        if (cleanImgName) {
+          const matchedImage = imageFiles[cleanImgName];
+          if (matchedImage) {
+            imageBlob = matchedImage.blob;
+            imageStatus = 'Found';
+          } else {
+            imageStatus = 'Not Found';
+            errors.push(`Image "${row.imageFilename}" not found inside ZIP folder`);
+          }
+        } else {
+          errors.push('Image filename is required');
+        }
+        
+        parsedProducts.push({
+          ...row,
+          imageBlob,
+          imageStatus,
+          errors,
+          isValid: errors.length === 0,
+        });
+      }
+      
+      setProductsToImport(parsedProducts);
+      showToast('✅ ZIP contents loaded and validated!');
+    } catch (err) {
+      showToast('❌ ZIP Import Error: ' + err.message);
+      setZipFileName('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartImportZip = async () => {
+    if (productsToImport.length === 0) return;
+    
+    // Check if there are validation errors
+    const hasErrors = productsToImport.some(p => !p.isValid);
+    if (hasErrors) {
+      showToast('⚠️ Please correct validation errors before importing');
+      return;
+    }
+
+    setImportingZip(true);
+    setFailedImportRows([]);
+    setImportProgress({ total: productsToImport.length, current: 0, success: 0, failed: 0 });
+
+    const failedRowsList = [];
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (let i = 0; i < productsToImport.length; i++) {
+      const p = productsToImport[i];
+      try {
+        const productData = {
+          name: p.name,
+          category: p.category,
+          price: p.price,
+          material: p.material,
+          dimensions: p.dimensions,
+          finish: p.finish,
+          warranty: p.warranty,
+          description: p.description,
+          featured: false,
+        };
+
+        const imageFilesArray = [];
+        if (p.imageBlob) {
+          // Reconstruct file object for Cloudinary upload service
+          const fileObj = new File([p.imageBlob], p.imageFilename, { type: p.imageBlob.type || 'image/jpeg' });
+          imageFilesArray.push(fileObj);
+        }
+
+        // Upload and write to Firestore
+        await addProduct(productData, imageFilesArray);
+        successCount++;
+      } catch (err) {
+        failedCount++;
+        failedRowsList.push({
+          rowNumber: p.rowNumber,
+          name: p.name || 'Unnamed Product',
+          reason: err.message || 'Image upload or Firestore write failed'
+        });
+      }
+
+      setImportProgress({
+        total: productsToImport.length,
+        current: i + 1,
+        success: successCount,
+        failed: failedCount,
+      });
+      setFailedImportRows([...failedRowsList]);
+    }
+
+    setImportingZip(false);
+    setProductsToImport([]);
+    setZipFileName('');
+    
+    // Show summary modal
+    setImportSummary({
+      show: true,
+      total: productsToImport.length,
+      success: successCount,
+      failed: failedCount,
+    });
+  };
+
   const getPageNumbers = () => {
     if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
     if (currentPage <= 3) return [1, 2, 3, 4, '...', totalPages];
@@ -399,7 +649,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
     { id: 'products', label: '📦 Products' },
     { id: 'categories', label: '📂 Categories' },
     { id: 'banners', label: '🎯 Banners' },
-    { id: 'bulk', label: '📤 Bulk Upload' },
+    { id: 'bulk', label: '📤 Bulk Import (ZIP)' },
   ];
 
   const getCatLabel = (slug) => {
@@ -901,106 +1151,259 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
         {activeTab === 'bulk' && (
           <div className="animate-fade-in space-y-6">
             <div className="bg-white rounded-2xl shadow-card p-6">
-              <h3 className="font-playfair text-lg font-bold text-charcoal-900 mb-2">📤 Bulk Upload Products (Excel)</h3>
-              <p className="text-wood-500 text-sm mb-6">Upload an Excel spreadsheet to add multiple products at once. Images can be added later from the Products tab.</p>
+              <h3 className="font-playfair text-xl font-bold text-charcoal-900 mb-2">📦 Bulk Product Import (ZIP)</h3>
+              <p className="text-wood-500 text-sm mb-6">
+                Upload a single ZIP archive containing your product spreadsheet and image files. All images will be automatically processed, uploaded to Cloudinary, and linked to your products in Firebase!
+              </p>
 
-              {/* Excel Format Guide */}
-              <div className="bg-wood-50 rounded-xl p-4 mb-6 border border-wood-100">
-                <p className="text-wood-700 text-sm font-medium mb-2">📋 Excel Format Guide:</p>
-                <p className="text-wood-600 text-xs mb-3">Make sure the first row contains these exact column names (lowercase or uppercase):</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs bg-white border border-wood-100 rounded-lg">
-                    <thead>
-                      <tr className="bg-wood-50 border-b border-wood-100">
-                        <th className="py-2 px-3 text-left font-medium text-wood-700">name *</th>
-                        <th className="py-2 px-3 text-left font-medium text-wood-700">category *</th>
-                        <th className="py-2 px-3 text-left font-medium text-wood-700">price</th>
-                        <th className="py-2 px-3 text-left font-medium text-wood-700">material</th>
-                        <th className="py-2 px-3 text-left font-medium text-wood-700">dimensions</th>
-                        <th className="py-2 px-3 text-left font-medium text-wood-700">finish</th>
-                        <th className="py-2 px-3 text-left font-medium text-wood-700">warranty</th>
-                        <th className="py-2 px-3 text-left font-medium text-wood-700">description</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className="border-b border-wood-50 text-wood-500">
-                        <td className="py-2 px-3 font-semibold text-charcoal-950">Royal Bed</td>
-                        <td className="py-2 px-3">bedroom</td>
-                        <td className="py-2 px-3">35000-55000</td>
-                        <td className="py-2 px-3">Solid Sheesham Wood</td>
-                        <td className="py-2 px-3">6x6 ft</td>
-                        <td className="py-2 px-3">Walnut</td>
-                        <td className="py-2 px-3">2 Year Warranty</td>
-                        <td className="py-2 px-3">Handcrafted sheesham double bed...</td>
-                      </tr>
-                    </tbody>
-                  </table>
+              {/* ZIP Folder Structure Guide */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="bg-wood-50 rounded-xl p-4 border border-wood-100">
+                  <p className="text-wood-700 text-sm font-semibold mb-2">📂 Recommended ZIP Structure:</p>
+                  <pre className="bg-white p-3 rounded-lg border border-wood-100 text-xs font-mono text-wood-700 leading-relaxed overflow-x-auto">
+{`FurnitureImport.zip
+├── products.xlsx
+└── images/
+    ├── royal_sofa.jpg
+    ├── luxury_bed.png
+    └── wooden_table.jpeg`}
+                  </pre>
                 </div>
-                <p className="text-[10px] text-wood-400 mt-2">* Note: "category" must match the slug of an existing category (e.g. living, bedroom, dining, office).</p>
+                <div className="bg-wood-50 rounded-xl p-4 border border-wood-100 text-xs text-wood-600 space-y-2">
+                  <p className="text-wood-700 text-sm font-semibold mb-1">📋 Excel Columns Sheet Guide:</p>
+                  <p>Make sure your <strong>products.xlsx</strong> has a header row with these columns:</p>
+                  <ul className="list-disc pl-4 space-y-1">
+                    <li><strong>Product Name</strong> <span className="text-red-500">*</span> (e.g. Royal Bed)</li>
+                    <li><strong>Category</strong> <span className="text-red-500">*</span> (e.g. living, bedroom, dining, office)</li>
+                    <li><strong>Price</strong> (e.g. 35000)</li>
+                    <li><strong>Image</strong> <span className="text-red-500">*</span> (Image filename in ZIP, e.g. <code>luxury_bed.png</code>)</li>
+                    <li><strong>Material</strong>, <strong>Dimensions</strong>, <strong>Finish</strong>, <strong>Warranty</strong>, <strong>Description</strong> (Optional)</li>
+                  </ul>
+                </div>
               </div>
 
-              {/* Upload Area */}
-              <label className="flex flex-col items-center justify-center border-2 border-dashed border-wood-300 rounded-xl p-8 cursor-pointer hover:border-wood-500 hover:bg-wood-50 transition-all">
-                <span className="text-4xl mb-3">📊</span>
-                <span className="text-wood-600 font-medium">{excelFileName || 'Click to choose Excel file'}</span>
-                <span className="text-wood-400 text-xs mt-1">Supports .xlsx and .xls files</span>
-                <input type="file" accept=".xlsx, .xls" onChange={handleExcelUpload} className="hidden" />
-              </label>
-            </div>
+              {/* Drag & Drop ZIP Upload Zone */}
+              {!importingZip && (
+                <div className="space-y-4">
+                  <label
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-wood-500', 'bg-wood-50'); }}
+                    onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-wood-500', 'bg-wood-50'); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove('border-wood-500', 'bg-wood-50');
+                      const file = e.dataTransfer.files[0];
+                      if (file && file.name.endsWith('.zip')) {
+                        handleZipUpload({ target: { files: [file] } });
+                      } else {
+                        showToast('❌ Please upload a valid .zip file');
+                      }
+                    }}
+                    className="flex flex-col items-center justify-center border-2 border-dashed border-wood-300 rounded-2xl p-10 cursor-pointer hover:border-wood-500 hover:bg-wood-50 transition-all select-none"
+                  >
+                    <div className="w-16 h-16 rounded-full bg-wood-100 flex items-center justify-center mb-4 text-3xl">
+                      📦
+                    </div>
+                    <span className="text-charcoal-900 font-semibold text-base mb-1">
+                      {zipFileName || 'Drag & Drop ZIP File here'}
+                    </span>
+                    <span className="text-wood-400 text-xs text-center max-w-sm">
+                      or click to browse your files. Make sure it contains products.xlsx and the images directory.
+                    </span>
+                    <input type="file" accept=".zip" onChange={handleZipUpload} className="hidden" />
+                  </label>
 
-            {/* Preview Table */}
-            {excelData.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-playfair text-lg font-bold text-charcoal-900">
-                    Preview ({excelData.length} products)
-                  </h3>
-                  <div className="flex gap-3">
-                    <button onClick={() => { setExcelData([]); setExcelFileName(''); }}
-                      className="btn-secondary text-sm px-4 py-2">Clear</button>
-                    <button onClick={handleBulkImport} disabled={bulkUploading}
-                      className="btn-primary text-sm px-4 py-2 disabled:opacity-70">
-                      {bulkUploading ? '⏳ Importing...' : `📤 Import ${excelData.length} Products`}
-                    </button>
+                  {zipFileName && (
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={() => {
+                          setZipFileName('');
+                          setProductsToImport([]);
+                          setFailedImportRows([]);
+                        }}
+                        className="btn-secondary text-sm px-5 py-2.5"
+                      >
+                        Clear ZIP
+                      </button>
+                      <button
+                        onClick={handleStartImportZip}
+                        disabled={productsToImport.length === 0 || productsToImport.some(p => !p.isValid)}
+                        className="btn-primary text-sm px-6 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        🚀 Start Bulk Import
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Progress UI */}
+              {importingZip && (
+                <div className="bg-wood-50 border border-wood-200 rounded-2xl p-6 space-y-4">
+                  <div className="flex justify-between text-sm font-semibold text-charcoal-900">
+                    <span className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-wood-600 border-t-transparent rounded-full animate-spin" />
+                      Importing Products... ({importProgress.current} / {importProgress.total})
+                    </span>
+                    <span className="text-wood-700">
+                      {Math.round((importProgress.current / importProgress.total) * 100)}%
+                    </span>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full h-3.5 bg-wood-100 rounded-full overflow-hidden border border-wood-200 shadow-inner">
+                    <div
+                      className="h-full bg-wood-gradient transition-all duration-300"
+                      style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="bg-white p-3 rounded-xl border border-wood-100">
+                      <p className="text-[10px] uppercase font-semibold text-wood-400">Total Products</p>
+                      <p className="text-lg font-bold text-charcoal-900">{importProgress.total}</p>
+                    </div>
+                    <div className="bg-green-50/50 p-3 rounded-xl border border-green-100">
+                      <p className="text-[10px] uppercase font-semibold text-green-500">Success</p>
+                      <p className="text-lg font-bold text-green-600">{importProgress.success}</p>
+                    </div>
+                    <div className="bg-red-50/50 p-3 rounded-xl border border-red-100">
+                      <p className="text-[10px] uppercase font-semibold text-red-500">Failed</p>
+                      <p className="text-lg font-bold text-red-600">{importProgress.failed}</p>
+                    </div>
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-wood-200">
-                        <th className="text-left py-2 px-3 text-wood-500 font-medium">#</th>
-                        <th className="text-left py-2 px-3 text-wood-500 font-medium">Name</th>
-                        <th className="text-left py-2 px-3 text-wood-500 font-medium">Category</th>
-                        <th className="text-left py-2 px-3 text-wood-500 font-medium">Price</th>
-                        <th className="text-left py-2 px-3 text-wood-500 font-medium">Material</th>
-                        <th className="text-left py-2 px-3 text-wood-500 font-medium">Warranty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {excelData.slice(0, 20).map((row, idx) => (
-                        <tr key={idx} className="border-b border-wood-50 hover:bg-wood-50">
-                          <td className="py-2 px-3 text-wood-400">{idx + 1}</td>
-                          <td className="py-2 px-3 font-medium text-charcoal-900">{row.name}</td>
-                          <td className="py-2 px-3 text-wood-600">{row.category}</td>
-                          <td className="py-2 px-3 text-wood-600">{row.price}</td>
-                          <td className="py-2 px-3 text-wood-500">{row.material}</td>
-                          <td className="py-2 px-3 text-wood-500">{row.warranty}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {excelData.length > 20 && (
-                    <p className="text-wood-400 text-xs text-center py-2">...and {excelData.length - 20} more rows</p>
-                  )}
+              )}
+            </div>
+
+            {/* Validation Alerts */}
+            {productsToImport.length > 0 && productsToImport.some(p => !p.isValid) && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm flex gap-3 items-start">
+                <span className="text-xl">⚠️</span>
+                <div>
+                  <p className="font-semibold mb-1">Validation Errors Found!</p>
+                  <p className="text-red-600 text-xs">
+                    Please correct the errors highlighted in red inside your Excel spreadsheet and re-upload the ZIP. The import button will remain disabled until all validation issues are resolved.
+                  </p>
                 </div>
               </div>
             )}
 
-            {/* Bulk Result */}
-            {bulkResult && (
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-6 text-center">
-                <p className="text-green-700 font-semibold text-lg">✅ Import Complete!</p>
-                <p className="text-green-600 text-sm mt-1">{bulkResult.success} products added successfully. {bulkResult.failed > 0 ? `${bulkResult.failed} failed.` : ''}</p>
+            {/* Preview Grid / List */}
+            {productsToImport.length > 0 && (
+              <div className="bg-white rounded-2xl shadow-card p-6 space-y-4">
+                <h3 className="font-playfair text-lg font-bold text-charcoal-900">
+                  Spreadsheet Preview & Validation ({productsToImport.length} items)
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="bg-wood-50 text-wood-700 font-semibold border-b border-wood-100">
+                        <th className="py-2.5 px-3">Row</th>
+                        <th className="py-2.5 px-3">Product Name</th>
+                        <th className="py-2.5 px-3">Category</th>
+                        <th className="py-2.5 px-3">Price</th>
+                        <th className="py-2.5 px-3">Image File</th>
+                        <th className="py-2.5 px-3">Image Status</th>
+                        <th className="py-2.5 px-3">Validation Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {productsToImport.map((row, idx) => (
+                        <tr
+                          key={idx}
+                          className={`border-b border-wood-50 transition-colors
+                            ${row.isValid ? 'hover:bg-wood-50' : 'bg-red-50/40 hover:bg-red-50/60'}`}
+                        >
+                          <td className="py-3 px-3 text-wood-400 font-medium">{row.rowNumber}</td>
+                          <td className="py-3 px-3 font-semibold text-charcoal-900">{row.name || <span className="text-red-500 italic">Empty</span>}</td>
+                          <td className="py-3 px-3 text-charcoal-800">{getCatLabel(row.category) || <span className="text-red-500 italic">Empty</span>}</td>
+                          <td className="py-3 px-3 text-wood-600 font-semibold">₹ {row.price || '0'}</td>
+                          <td className="py-3 px-3 text-wood-500 font-mono">{row.imageFilename || <span className="text-red-400 italic">Not set</span>}</td>
+                          <td className="py-3 px-3">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold
+                              ${row.imageStatus === 'Found' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {row.imageStatus}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            {row.isValid ? (
+                              <span className="text-green-600 font-semibold flex items-center gap-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Valid Row
+                              </span>
+                            ) : (
+                              <div className="space-y-0.5">
+                                {row.errors.map((err, eIdx) => (
+                                  <p key={eIdx} className="text-red-600 font-medium text-[10px]">❌ {err}</p>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Import Summary Dialog */}
+            {importSummary.show && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay animate-fade-in">
+                <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl animate-scale-in max-h-[85vh] flex flex-col">
+                  <div className="text-center pb-4 border-b border-wood-100 flex-shrink-0">
+                    <span className="text-4xl">📊</span>
+                    <h3 className="font-playfair text-xl font-bold text-charcoal-900 mt-2">Bulk Import Report</h3>
+                    <p className="text-wood-500 text-xs mt-1">Import operation completed</p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 my-5 flex-shrink-0">
+                    <div className="bg-wood-50 p-3 rounded-xl border border-wood-100 text-center">
+                      <p className="text-[10px] font-semibold text-wood-400 uppercase">Processed</p>
+                      <p className="text-xl font-bold text-charcoal-900">{importSummary.total}</p>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded-xl border border-green-100 text-center">
+                      <p className="text-[10px] font-semibold text-green-500 uppercase">Imported</p>
+                      <p className="text-xl font-bold text-green-700">{importSummary.success}</p>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded-xl border border-red-100 text-center">
+                      <p className="text-[10px] font-semibold text-red-500 uppercase">Failed</p>
+                      <p className="text-xl font-bold text-red-700">{importSummary.failed}</p>
+                    </div>
+                  </div>
+
+                  {/* Failed rows listing */}
+                  <div className="flex-1 overflow-y-auto min-h-0 border border-wood-100 rounded-xl p-3 bg-wood-50/50 mb-5">
+                    <p className="text-xs font-semibold text-charcoal-900 mb-2 border-b border-wood-100 pb-1 flex items-center gap-1.5">
+                      🚨 Error Details & Log:
+                    </p>
+                    {failedImportRows.length === 0 ? (
+                      <p className="text-green-600 text-xs italic py-4 text-center">All rows were imported successfully without errors!</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {failedImportRows.map((f, idx) => (
+                          <div key={idx} className="bg-white p-2.5 rounded-lg border border-red-100 text-xs text-charcoal-800">
+                            <div className="flex justify-between font-semibold text-red-700 mb-0.5">
+                              <span>Row {f.rowNumber} : {f.name}</span>
+                            </div>
+                            <p className="text-wood-600 text-[11px]">Reason: {f.reason}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-shrink-0">
+                    <button
+                      onClick={() => setImportSummary({ show: false, total: 0, success: 0, failed: 0 })}
+                      className="w-full btn-primary text-sm py-2.5"
+                    >
+                      Close Report
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>

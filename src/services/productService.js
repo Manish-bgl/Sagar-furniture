@@ -159,6 +159,28 @@ export const bulkAddProducts = async (productsArray) => {
 
   for (const product of productsArray) {
     try {
+      const urls = [];
+      
+      // Parse individual columns
+      const img1 = product.imageurl || product.image_url || product['image url'] || product['image url 1'] || product['image_url_1'] || product.imageurl1 || '';
+      const img2 = product.image_url_2 || product['image url 2'] || product.imageurl2 || '';
+      const img3 = product.image_url_3 || product['image url 3'] || product.imageurl3 || '';
+      
+      if (img1) urls.push(img1);
+      if (img2) urls.push(img2);
+      if (img3) urls.push(img3);
+
+      // Parse comma-separated list column
+      const commaseparated = product.imageurls || product['image urls'] || '';
+      if (commaseparated) {
+        commaseparated.split(',').forEach(u => {
+          const trimmed = u.trim();
+          if (trimmed && !urls.includes(trimmed)) {
+            urls.push(trimmed);
+          }
+        });
+      }
+
       const docRef = doc(collection(db, COLLECTION));
       batch.set(docRef, {
         name: product.name || '',
@@ -169,15 +191,18 @@ export const bulkAddProducts = async (productsArray) => {
         finish: product.finish || '',
         warranty: product.warranty || '',
         description: product.description || '',
-        imageUrl: '',
+        imageUrl: urls[0] || '',
         imagePublicId: '',
+        imageUrls: urls,
+        imagePublicIds: [], // Empty since they are external links
         featured: false,
         viewCount: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
       results.success++;
-    } catch {
+    } catch (e) {
+      console.error('Error adding bulk product:', e);
       results.failed++;
     }
   }
