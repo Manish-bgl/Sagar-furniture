@@ -4,6 +4,8 @@ import JSZip from 'jszip';
 import { addProduct, updateProduct, deleteProduct, toggleFeatured, bulkAddProducts } from '../../services/productService';
 import { addCategory, updateCategory, deleteCategory, seedDefaultCategories } from '../../services/categoryService';
 import { addBanner, updateBanner, deleteBanner, toggleBannerActive } from '../../services/bannerService';
+import { addProductType, deleteProductType, seedDefaultProductTypes } from '../../services/productTypeService';
+import useProductTypes from '../../hooks/useProductTypes';
 
 const ADMIN_PAGE_SIZE = 20;
 
@@ -103,6 +105,11 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
   const [catForm, setCatForm] = useState({ name: '', emoji: '📦' });
   const [editingCat, setEditingCat] = useState(null);
   const [deleteCatConfirm, setDeleteCatConfirm] = useState(null);
+
+  // Dynamic Product Types (Item Types) state
+  const { productTypes } = useProductTypes();
+  const [typeForm, setTypeForm] = useState({ label: '', emoji: '🪵', keywords: '' });
+  const [deleteTypeConfirm, setDeleteTypeConfirm] = useState(null);
 
   // Banner state
   const [bannerForm, setBannerForm] = useState({ title: '', subtitle: '', linkUrl: '', order: 1 });
@@ -293,6 +300,38 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
     try {
       await seedDefaultCategories();
       showToast('✅ Default categories added!');
+    } catch (err) { showToast('❌ Error: ' + err.message); }
+    finally { setLoading(false); }
+  };
+
+  // ---- Product Types (Item Types) handlers ----
+  const handleTypeSubmit = async (e) => {
+    e.preventDefault();
+    if (!typeForm.label) return;
+    setLoading(true);
+    try {
+      await addProductType(typeForm.label, typeForm.emoji, typeForm.keywords);
+      showToast('✅ Item type added!');
+      setTypeForm({ label: '', emoji: '🪵', keywords: '' });
+    } catch (err) { showToast('❌ Error: ' + err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleDeleteType = async (itemType) => {
+    setLoading(true);
+    try {
+      await deleteProductType(itemType.id);
+      showToast('🗑️ Item type deleted.');
+      setDeleteTypeConfirm(null);
+    } catch (err) { showToast('❌ Error: ' + err.message); }
+    finally { setLoading(false); }
+  };
+
+  const handleSeedTypes = async () => {
+    setLoading(true);
+    try {
+      await seedDefaultProductTypes();
+      showToast('✅ Default item types added!');
     } catch (err) { showToast('❌ Error: ' + err.message); }
     finally { setLoading(false); }
   };
@@ -648,6 +687,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
     { id: 'dashboard', label: '📊 Dashboard' },
     { id: 'products', label: '📦 Products' },
     { id: 'categories', label: '📂 Categories' },
+    { id: 'types', label: '🔵 Item Types' },
     { id: 'banners', label: '🎯 Banners' },
     { id: 'bulk', label: '📤 Bulk Import (ZIP)' },
   ];
@@ -1033,6 +1073,81 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                           className="px-3 py-1.5 bg-wood-100 text-wood-700 rounded-lg text-sm hover:bg-wood-200 transition-colors">✏️</button>
                         <button onClick={() => setDeleteCatConfirm(cat)}
                           className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-sm hover:bg-red-100 transition-colors">🗑️</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ============================= */}
+        {/* TAB: ITEM TYPES */}
+        {/* ============================= */}
+        {activeTab === 'types' && (
+          <div className="animate-fade-in space-y-6">
+            {/* Add Item Type */}
+            <div className="bg-white rounded-2xl shadow-card p-6">
+              <h3 className="font-playfair text-lg font-bold text-charcoal-900 mb-4">
+                ➕ Add New Item Type
+              </h3>
+              <form onSubmit={handleTypeSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-wood-700 text-sm font-medium mb-1">Item Type Name</label>
+                    <input required value={typeForm.label} onChange={(e) => setTypeForm({ ...typeForm, label: e.target.value })}
+                      placeholder="e.g. Sofa, Bed, Dining Table" className="w-full px-4 py-2.5 border-2 border-wood-200 rounded-xl focus:outline-none focus:border-wood-500 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-wood-700 text-sm font-medium mb-1">Keywords (Comma separated search terms)</label>
+                    <input required value={typeForm.keywords} onChange={(e) => setTypeForm({ ...typeForm, keywords: e.target.value })}
+                      placeholder="e.g. sofa, couch, settee" className="w-full px-4 py-2.5 border-2 border-wood-200 rounded-xl focus:outline-none focus:border-wood-500 text-sm" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-wood-700 text-sm font-medium mb-2">Icon Emoji</label>
+                  <div className="flex gap-1 flex-wrap max-w-md">
+                    {['🛏️', '🛋️', '🍽️', '💺', '🪑', '🪟', '🗄️', '📚', '🪞', '🪂', '🪵', '📦', '🪜', '🏺', '💡'].map((em) => (
+                      <button key={em} type="button" onClick={() => setTypeForm({ ...typeForm, emoji: em })}
+                        className={`w-9 h-9 rounded-lg text-lg flex items-center justify-center transition-all
+                          ${typeForm.emoji === em ? 'bg-wood-200 ring-2 ring-wood-500 scale-110' : 'hover:bg-wood-50'}`}>
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <button type="submit" disabled={loading} className="btn-primary text-sm px-5 py-2.5">
+                    {loading ? 'Adding...' : '+ Add Item Type'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Item Types List */}
+            <div className="bg-white rounded-2xl shadow-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-playfair text-lg font-bold text-charcoal-900">All Item Types ({productTypes.length})</h3>
+                {productTypes.length === 0 && (
+                  <button onClick={handleSeedTypes} disabled={loading}
+                    className="btn-secondary text-sm px-4 py-2">🌱 Seed Default Types</button>
+                )}
+              </div>
+              {productTypes.length === 0 ? (
+                <p className="text-wood-400 text-sm text-center py-8">No item types. Click "Seed Default Types" to initialize default furniture items.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {productTypes.map((item) => (
+                    <div key={item.id} className="flex items-center gap-4 p-4 rounded-xl hover:bg-wood-50 transition-colors border border-wood-100 bg-white shadow-sm">
+                      <span className="text-3xl bg-wood-50 w-12 h-12 flex items-center justify-center rounded-full border border-wood-100">{item.emoji}</span>
+                      <div className="flex-1">
+                        <p className="font-semibold text-charcoal-900 text-sm">{item.label}</p>
+                        <p className="text-wood-400 text-xs">Keywords: <span className="font-mono text-[10px]">{item.keywords || 'none'}</span></p>
+                      </div>
+                      <div>
+                        <button onClick={() => setDeleteTypeConfirm(item)}
+                          className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs hover:bg-red-100 transition-colors font-medium">🗑️ Delete</button>
                       </div>
                     </div>
                   ))}
@@ -1439,6 +1554,23 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                 {loading ? 'Deleting...' : 'Yes, Delete'}
               </button>
               <button onClick={() => setDeleteCatConfirm(null)} className="flex-1 btn-secondary">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Item Type Confirm Modal */}
+      {deleteTypeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl animate-scale-in">
+            <h3 className="font-playfair text-lg font-bold text-charcoal-900 mb-2">Delete Item Type?</h3>
+            <p className="text-wood-600 text-sm mb-5">Are you sure you want to delete <strong>{deleteTypeConfirm.emoji} {deleteTypeConfirm.label}</strong>? This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => handleDeleteType(deleteTypeConfirm)} disabled={loading}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2.5 rounded-xl transition-colors disabled:opacity-70">
+                {loading ? 'Deleting...' : 'Yes, Delete'}
+              </button>
+              <button onClick={() => setDeleteTypeConfirm(null)} className="flex-1 btn-secondary">Cancel</button>
             </div>
           </div>
         </div>

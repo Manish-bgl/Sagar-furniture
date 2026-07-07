@@ -1,31 +1,19 @@
-// Quick-browse rounded circles for product types
-// These are hardcoded item-type shortcuts that filter by name keyword
+// Quick-browse rounded circles for product types loaded dynamically from Firestore
 
-const PRODUCT_TYPES = [
-  { key: 'bed',       label: 'Bed',       emoji: '🛏️', keywords: ['bed'] },
-  { key: 'sofa',      label: 'Sofa',      emoji: '🛋️', keywords: ['sofa', 'couch', 'settee'] },
-  { key: 'table',     label: 'Table',     emoji: '🍽️', keywords: ['table', 'dining table', 'coffee table', 'center table'] },
-  { key: 'chair',     label: 'Chair',     emoji: '💺', keywords: ['chair', 'armchair', 'recliner'] },
-  { key: 'wardrobe',  label: 'Wardrobe',  emoji: '🪟', keywords: ['wardrobe', 'cupboard', 'almirah', 'closet'] },
-  { key: 'cabinet',   label: 'Cabinet',   emoji: '🗄️', keywords: ['cabinet', 'cabinet', 'tv unit', 'tv stand'] },
-  { key: 'shelf',     label: 'Shelf',     emoji: '📚', keywords: ['shelf', 'shelves', 'bookshelf', 'rack', 'bookcase'] },
-  { key: 'stool',     label: 'Stool',     emoji: '🪑', keywords: ['stool', 'bench', 'ottoman', 'pouf'] },
-  { key: 'dresser',   label: 'Dresser',   emoji: '🪞', keywords: ['dresser', 'dressing table', 'vanity', 'makeup table'] },
-  { key: 'swing',     label: 'Swing',     emoji: '🪂', keywords: ['swing', 'jhoola', 'hammock'] },
-];
+const ProductTypeFilter = ({ productTypes, activeType, onTypeChange }) => {
+  if (!productTypes || productTypes.length === 0) return null;
 
-const ProductTypeFilter = ({ activeType, onTypeChange }) => {
   return (
     <div className="w-full">
       <p className="text-center text-xs font-semibold text-wood-400 uppercase tracking-widest mb-4">
         Browse by Item Type
       </p>
       <div className="flex flex-wrap gap-4 sm:gap-5 justify-center">
-        {PRODUCT_TYPES.map((type) => {
+        {productTypes.map((type) => {
           const isActive = activeType === type.key;
           return (
             <button
-              key={type.key}
+              key={type.id || type.key}
               onClick={() => onTypeChange(isActive ? '' : type.key)}
               aria-label={`Browse ${type.label}`}
               className="flex flex-col items-center gap-2 group transition-all duration-300 focus:outline-none"
@@ -42,7 +30,7 @@ const ProductTypeFilter = ({ activeType, onTypeChange }) => {
                 `}
                 style={isActive ? { background: 'linear-gradient(135deg, #92400e 0%, #b45309 60%, #d97706 100%)' } : {}}
               >
-                {type.emoji}
+                {type.emoji || '📦'}
               </div>
               {/* Label */}
               <span
@@ -57,16 +45,6 @@ const ProductTypeFilter = ({ activeType, onTypeChange }) => {
         })}
       </div>
     </div>
-  );
-};
-
-// Helper — call this from CatalogPage to filter products by type keyword
-export const filterByProductType = (products, typeKey) => {
-  if (!typeKey) return products;
-  const type = PRODUCT_TYPES.find(t => t.key === typeKey);
-  if (!type) return products;
-  return products.filter(p =>
-    type.keywords.some(kw => p.name?.toLowerCase().includes(kw))
   );
 };
 

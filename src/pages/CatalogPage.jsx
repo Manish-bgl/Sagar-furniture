@@ -1,13 +1,14 @@
 import { useState, useMemo, useEffect } from 'react';
 import HeroSection from '../components/catalog/HeroSection';
 import CategoryFilter from '../components/catalog/CategoryFilter';
-import ProductTypeFilter, { filterByProductType } from '../components/catalog/ProductTypeFilter';
+import ProductTypeFilter from '../components/catalog/ProductTypeFilter';
 import SearchBar from '../components/catalog/SearchBar';
 import ProductCard from '../components/catalog/ProductCard';
 import ProductModal from '../components/catalog/ProductModal';
 import Footer from '../components/shared/Footer';
 import useProducts from '../hooks/useProducts';
 import useCategories from '../hooks/useCategories';
+import useProductTypes from '../hooks/useProductTypes';
 import useBanners from '../hooks/useBanners';
 import { incrementViewCount } from '../services/productService';
 import { trackVisit } from '../services/visitorService';
@@ -17,6 +18,7 @@ const PRODUCTS_PER_PAGE = 50;
 const CatalogPage = () => {
   const { products, loading } = useProducts();
   const { categories } = useCategories();
+  const { productTypes } = useProductTypes();
   const { banners } = useBanners();
 
   const [activeCategory, setActiveCategory] = useState('all');
@@ -157,10 +159,18 @@ const CatalogPage = () => {
     });
     // Apply product-type filter (rounded circles)
     if (activeProductType) {
-      result = filterByProductType(result, activeProductType);
+      const selectedType = productTypes.find((t) => t.key === activeProductType);
+      if (selectedType) {
+        const keywords = selectedType.keywords
+          ? selectedType.keywords.split(',').map((k) => k.trim().toLowerCase())
+          : [selectedType.key.toLowerCase(), selectedType.label.toLowerCase()];
+        result = result.filter((p) =>
+          keywords.some((kw) => p.name?.toLowerCase().includes(kw))
+        );
+      }
     }
     return result;
-  }, [products, activeCategory, searchQuery, activeProductType]);
+  }, [products, activeCategory, searchQuery, activeProductType, productTypes]);
 
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
 
@@ -280,6 +290,7 @@ const CatalogPage = () => {
         {/* 🔵 Quick Browse — Rounded Circles (Bed, Sofa, Table, Chair...) */}
         <div className="bg-white rounded-2xl shadow-card px-4 py-6 mb-5">
           <ProductTypeFilter
+            productTypes={productTypes}
             activeType={activeProductType}
             onTypeChange={handleProductTypeChange}
           />
