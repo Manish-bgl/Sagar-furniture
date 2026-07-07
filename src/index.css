@@ -189,3 +189,35 @@
   }
 }
 
+/* 5. Print Catalog Page Styles */
+@media print {
+  body.print-catalog-body {
+    display: block !important;
+    visibility: visible !important;
+    background: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .print-catalog-view {
+    padding: 12mm !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .print-catalog-view img {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .print-catalog-view > .grid > div {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Hide screen-only buttons/UI during print */
+  .no-print-btn {
+    display: none !important;
+  }
+}

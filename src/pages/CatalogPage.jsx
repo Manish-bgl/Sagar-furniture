@@ -218,10 +218,22 @@ const CatalogPage = () => {
 
         <div className="text-center mb-10">
           <h2 className="section-title mb-3">Our Complete Collection</h2>
-          <p className="text-wood-600 max-w-xl mx-auto">
+          <p className="text-wood-600 max-w-xl mx-auto mb-5">
             Every design is crafted with the finest wood and skilled craftsmanship.
             Choose your perfect furniture.
           </p>
+          {/* Download Catalog Button */}
+          <a
+            href="/print-catalog"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2.5 bg-white hover:bg-wood-50 text-wood-700 font-semibold border-2 border-wood-300 hover:border-wood-500 px-6 py-2.5 rounded-xl text-sm transition-all duration-200 shadow-sm hover:shadow-wood hover:-translate-y-0.5 group"
+          >
+            <svg className="w-4 h-4 text-wood-500 group-hover:text-wood-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download PDF Catalog
+          </a>
         </div>
 
         <div className="space-y-5 mb-6">

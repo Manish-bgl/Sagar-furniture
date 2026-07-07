@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from './firebase/config';
 import CatalogPage from './pages/CatalogPage';
+import PrintCatalogPage from './pages/PrintCatalogPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import AdminDashboard from './components/admin/AdminDashboard';
 import useProducts from './hooks/useProducts';
@@ -73,6 +74,7 @@ function App() {
       <Routes>
         <Route path="/" element={<CatalogPage />} />
         <Route path="/admin" element={<AdminRoute />} />
+        <Route path="/print-catalog" element={<PrintCatalogPage />} />
       </Routes>
     </BrowserRouter>
   );
