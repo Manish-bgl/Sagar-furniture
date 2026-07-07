@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import HeroSection from '../components/catalog/HeroSection';
 import CategoryFilter from '../components/catalog/CategoryFilter';
+import ProductTypeFilter, { filterByProductType } from '../components/catalog/ProductTypeFilter';
 import SearchBar from '../components/catalog/SearchBar';
 import ProductCard from '../components/catalog/ProductCard';
 import ProductModal from '../components/catalog/ProductModal';
@@ -19,6 +20,7 @@ const CatalogPage = () => {
   const { banners } = useBanners();
 
   const [activeCategory, setActiveCategory] = useState('all');
+  const [activeProductType, setActiveProductType] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -100,6 +102,11 @@ const CatalogPage = () => {
     setCurrentPage(1);
   };
 
+  const handleProductTypeChange = (type) => {
+    setActiveProductType(type);
+    setCurrentPage(1);
+  };
+
   const handleSearchChange = (q) => {
     setSearchQuery(q);
     setCurrentPage(1);
@@ -138,7 +145,7 @@ const CatalogPage = () => {
   }, [products]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
+    let result = products.filter((p) => {
       const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
       const q = searchQuery.toLowerCase();
       const matchesSearch =
@@ -148,7 +155,12 @@ const CatalogPage = () => {
         p.description?.toLowerCase().includes(q);
       return matchesCategory && matchesSearch;
     });
-  }, [products, activeCategory, searchQuery]);
+    // Apply product-type filter (rounded circles)
+    if (activeProductType) {
+      result = filterByProductType(result, activeProductType);
+    }
+    return result;
+  }, [products, activeCategory, searchQuery, activeProductType]);
 
   const totalPages = Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE);
 
@@ -218,30 +230,78 @@ const CatalogPage = () => {
 
         <div className="text-center mb-10">
           <h2 className="section-title mb-3">Our Complete Collection</h2>
-          <p className="text-wood-600 max-w-xl mx-auto mb-5">
+          <p className="text-wood-600 max-w-xl mx-auto mb-6">
             Every design is crafted with the finest wood and skilled craftsmanship.
             Choose your perfect furniture.
           </p>
-          {/* Download Catalog Button */}
-          <a
-            href="/print-catalog"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2.5 bg-white hover:bg-wood-50 text-wood-700 font-semibold border-2 border-wood-300 hover:border-wood-500 px-6 py-2.5 rounded-xl text-sm transition-all duration-200 shadow-sm hover:shadow-wood hover:-translate-y-0.5 group"
-          >
-            <svg className="w-4 h-4 text-wood-500 group-hover:text-wood-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Download PDF Catalog
-          </a>
+
+          {/* ✨ Eye-Catching Download Button */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <a
+              href="/print-catalog"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="relative inline-flex items-center gap-3 px-7 py-3.5 rounded-2xl font-bold text-sm text-white overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
+              style={{ background: 'linear-gradient(135deg, #92400e 0%, #b45309 50%, #d97706 100%)' }}
+            >
+              {/* Animated glow ring */}
+              <span className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                style={{ boxShadow: '0 0 30px rgba(180, 83, 9, 0.6)' }} />
+              {/* Shimmer sweep */}
+              <span className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+              <svg className="w-5 h-5 relative z-10 group-hover:animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span className="relative z-10 tracking-wide">📥 Download Full Catalog (PDF)</span>
+            </a>
+
+            {/* Category-wise download — shown when a category is active */}
+            {activeCategory !== 'all' && (
+              <a
+                href={`/print-catalog?category=${activeCategory}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl font-semibold text-sm border-2 border-wood-400 text-wood-700 bg-wood-50 hover:bg-wood-100 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Download {categories.find(c => c.slug === activeCategory)?.name || activeCategory} Catalog
+              </a>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-5 mb-6">
+        {/* 🔍 Search Bar */}
+        <div className="mb-6">
           <SearchBar value={searchQuery} onChange={handleSearchChange} />
-          <CategoryFilter 
-            categories={categories} 
-            activeCategory={activeCategory} 
-            onCategoryChange={handleCategoryChange} 
+        </div>
+
+        {/* 🔵 Quick Browse — Rounded Circles (Bed, Sofa, Table, Chair...) */}
+        <div className="bg-white rounded-2xl shadow-card px-4 py-6 mb-5">
+          <ProductTypeFilter
+            activeType={activeProductType}
+            onTypeChange={handleProductTypeChange}
+          />
+          {/* Active type chip — tap to clear */}
+          {activeProductType && (
+            <div className="flex justify-center mt-4">
+              <button
+                onClick={() => handleProductTypeChange('')}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-wood-700 bg-wood-100 hover:bg-wood-200 px-3 py-1.5 rounded-full transition-colors"
+              >
+                ✕ Clear Type Filter
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 🏷️ Admin Categories — Square Pills (Living Room, Bedroom, Dining...) */}
+        <div className="mb-8">
+          <CategoryFilter
+            categories={categories}
+            activeCategory={activeCategory}
+            onCategoryChange={handleCategoryChange}
           />
         </div>
 
