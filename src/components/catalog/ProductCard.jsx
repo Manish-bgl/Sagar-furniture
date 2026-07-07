@@ -47,7 +47,7 @@ const ProductCard = ({ product, categories = [], onClick }) => {
         <img
           src={displayImage}
           alt={product.name}
-          className="w-full h-full object-cover transition-opacity duration-300"
+          className="w-full h-full object-cover transition-opacity duration-300 protect-img"
           onError={(e) => { e.target.src = PLACEHOLDER_IMAGE; }}
         />
         {/* 🛡️ Transparent protection overlay (blocks context menu / saving) */}

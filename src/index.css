@@ -155,8 +155,8 @@
    🛡️ SAGAR FURNITURE PRODUCT PROTECTION & ANTI-SCREENSHOT STYLES
    ────────────────────────────────────────────────────────── */
 
-/* 1. Prevent Right-Click & Dragging directly on Images */
-img {
+/* 1. Prevent Right-Click & Dragging directly on Protected Images */
+.protect-img {
   -webkit-user-select: none !important;
   -moz-user-select: none !important;
   -ms-user-select: none !important;
@@ -181,9 +181,9 @@ img {
   transition: filter 0.15s ease, opacity 0.15s ease !important;
 }
 
-/* 4. Disable Print completely (Prevents printing/saving to PDF) */
+/* 4. Disable Print completely for Customer Catalog */
 @media print {
-  html, body {
+  body.no-print {
     display: none !important;
     visibility: hidden !important;
   }

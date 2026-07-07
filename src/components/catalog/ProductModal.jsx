@@ -95,7 +95,6 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
         >
           {/* ─── Image Gallery ─── */}
           <div className="relative bg-charcoal-950 rounded-t-3xl overflow-hidden">
-            {/* Main Image — click to open fullscreen */}
             <div
               className="relative h-72 md:h-80 cursor-pointer"
               onClick={() => setLightboxOpen(true)}
@@ -103,7 +102,7 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
               <img
                 src={activeImage}
                 alt={product.name}
-                className="w-full h-full object-cover transition-opacity duration-300"
+                className="w-full h-full object-cover transition-opacity duration-300 protect-img"
                 onError={e => { e.target.src = PLACEHOLDER_IMAGE; }}
               />
               {/* 🛡️ Transparent protection overlay */}
@@ -124,7 +123,7 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
                     className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all flex-shrink-0 relative
                       ${activeImageIdx === idx ? 'border-wood-400 scale-105 shadow-md' : 'border-transparent opacity-60 hover:opacity-100'}`}
                   >
-                    <img src={img} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover"
+                    <img src={img} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover protect-img"
                       onError={e => { e.target.src = PLACEHOLDER_IMAGE; }} />
                     {/* 🛡️ Transparent protection overlay */}
                     <div className="absolute inset-0 select-none z-10" />
@@ -243,7 +242,7 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
                         <img
                           src={p.imageUrls?.[0] || p.imageUrl || PLACEHOLDER_IMAGE}
                           alt={p.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover protect-img"
                           onError={e => { e.target.src = PLACEHOLDER_IMAGE; }}
                         />
                         {/* 🛡️ Transparent protection overlay */}
@@ -272,7 +271,7 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
             <img
               src={activeImage}
               alt={product.name}
-              className="max-w-full max-h-full object-contain rounded-xl select-none"
+              className="max-w-full max-h-full object-contain rounded-xl select-none protect-img"
               onError={e => { e.target.src = PLACEHOLDER_IMAGE; }}
             />
             {/* 🛡️ Transparent protection overlay */}
