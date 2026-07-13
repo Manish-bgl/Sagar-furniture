@@ -37,9 +37,9 @@ const AdminLoginPage = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-hero-gradient flex items-center justify-center p-4">
-      <div className="absolute top-0 right-0 w-96 h-96 bg-wood-600/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-      <div className="absolute bottom-0 left-0 w-64 h-64 bg-wood-400/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
+    <div className="fixed inset-0 overflow-y-auto flex items-center justify-center p-4" style={{ background: 'linear-gradient(160deg, #14110d 0%, #3d1e0f 50%, #6b3b21 100%)' }}>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-wood-600/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl z-0" />
+      <div className="absolute bottom-0 left-0 w-64 h-64 bg-wood-400/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl z-0" />
 
       <div className="relative w-full max-w-md animate-scale-in">
         <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
