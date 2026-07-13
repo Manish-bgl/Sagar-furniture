@@ -164,6 +164,45 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
+  // AI Description Generator Handler
+  const [generatingDescription, setGeneratingDescription] = useState(false);
+  const handleGenerateDescription = async () => {
+    if (!form.name) {
+      showToast('⚠️ Please enter the Product Name first to generate a description!');
+      return;
+    }
+    setGeneratingDescription(true);
+    try {
+      const response = await fetch('/api/generate-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          category: form.category,
+          material: form.material,
+          dimensions: form.dimensions,
+          finish: form.finish,
+          warranty: form.warranty,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'AI generation failed');
+      }
+
+      const data = await response.json();
+      if (data.description) {
+        setForm(prev => ({ ...prev, description: data.description }));
+        showToast('✨ AI Description generated successfully!');
+      }
+    } catch (err) {
+      showToast('❌ Error: ' + err.message);
+    } finally {
+      setGeneratingDescription(false);
+    }
+  };
+
   // ---- Product handlers ----
   const handleImageChange = (e, idx) => {
     const file = e.target.files[0];
@@ -876,7 +915,26 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                       onChange={(v) => setForm({ ...form, warranty: v })} options={WARRANTY_OPTIONS} placeholder="e.g. 2 Year Warranty" />
                   </div>
                   <div>
-                    <label className="block text-wood-700 text-sm font-medium mb-1">Description</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-wood-700 text-sm font-medium">Description</label>
+                      <button
+                        type="button"
+                        disabled={generatingDescription}
+                        onClick={handleGenerateDescription}
+                        className="text-xs bg-wood-100 hover:bg-wood-200 text-wood-700 px-3 py-1.5 rounded-xl font-semibold flex items-center gap-1 transition-all disabled:opacity-75"
+                      >
+                        {generatingDescription ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-wood-500/30 border-t-wood-700 rounded-full animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          <>
+                            🤖 Auto-Generate (AI)
+                          </>
+                        )}
+                      </button>
+                    </div>
                     <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
                       rows={3} placeholder="Describe the furniture..."
                       className="w-full px-4 py-2.5 border-2 border-wood-200 rounded-xl focus:outline-none focus:border-wood-500 transition-all resize-none text-sm" />
