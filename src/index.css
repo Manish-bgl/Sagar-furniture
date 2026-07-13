@@ -223,103 +223,83 @@
 }
 
 /* ──────────────────────────────────────────────────────────
-   🌙 DARK MODE STYLES
-   Applied when <html class="dark"> via useDarkMode hook
+   ⚙️ ADMIN PANEL STYLING OVERRIDES (DECENT & PREMIUM)
 ────────────────────────────────────────────────────────── */
-
-/* Base dark body */
-html.dark body {
-  background-color: #14110d;
-  color: #f9eedb;
+.admin-panel-container {
+  background: linear-gradient(135deg, #fdf8f0 0%, #f7ebd3 100%) !important;
+  font-family: 'Outfit', sans-serif;
 }
 
-/* Dark scrollbar */
-html.dark ::-webkit-scrollbar-track { background: #1e1a16; }
-html.dark ::-webkit-scrollbar-thumb { background: #a05720; }
-
-/* Dark section title */
-html.dark .section-title {
-  color: #f9eedb;
+/* Style admin cards for clean layout */
+.admin-panel-container .bg-white {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(212, 136, 46, 0.15) !important;
+  box-shadow: 0 4px 20px 0 rgba(192, 112, 35, 0.05) !important;
+  border-radius: 20px !important;
+  transition: all 0.3s ease;
 }
 
-/* Dark product card */
-html.dark .card {
-  background: #1e1a16;
-  border-color: #3d1e0f;
+.admin-panel-container .bg-white:hover {
+  box-shadow: 0 8px 30px 0 rgba(192, 112, 35, 0.08) !important;
 }
 
-/* Dark category pills */
-html.dark .category-pill-active {
-  background: linear-gradient(135deg, #b45309 0%, #78350f 100%);
-  box-shadow: 0 4px 16px rgba(180, 83, 9, 0.40);
+/* Styled inputs, textareas, and selects */
+.admin-panel-container input,
+.admin-panel-container select,
+.admin-panel-container textarea {
+  border-radius: 14px !important;
+  border: 2px solid #e8be80 !important;
+  font-weight: 500;
+  background-color: #ffffff !important;
+  transition: all 0.3s ease !important;
 }
 
-/* Dark modal overlay */
-html.dark .modal-overlay {
-  background: rgba(10, 8, 5, 0.85);
+.admin-panel-container input:focus,
+.admin-panel-container select:focus,
+.admin-panel-container textarea:focus {
+  border-color: #c07023 !important;
+  box-shadow: 0 0 0 4px rgba(192, 112, 35, 0.15) !important;
+  outline: none !important;
 }
 
-/* Dark input & form elements */
-html.dark input,
-html.dark textarea,
-html.dark select {
-  background-color: #1e1a16;
-  color: #f9eedb;
-  border-color: #3d1e0f;
+/* Elegant header */
+.admin-panel-container header {
+  background: linear-gradient(135deg, #241f1a 0%, #3a3229 100%) !important;
+  border-bottom: 2px solid #d4882e;
 }
 
-html.dark input::placeholder,
-html.dark textarea::placeholder {
-  color: #78716c;
+/* Elegant sticky navigation tabs */
+.admin-panel-container .sticky.top-\[72px\] {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(192, 112, 35, 0.15) !important;
+  padding: 4px 0;
 }
 
-/* Dark search bar */
-html.dark input[type="search"],
-html.dark input[type="text"] {
-  background-color: #1e1a16 !important;
-  color: #f9eedb !important;
-  border-color: #3d1e0f !important;
+.admin-panel-container .sticky.top-\[72px\] button {
+  border-radius: 12px !important;
+  margin: 6px 4px !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
+  border-bottom: none !important;
+  padding: 8px 16px !important;
 }
 
-/* Dark bg for white sections */
-html.dark .bg-white {
-  background-color: #1e1a16 !important;
+/* Style active tab button to match terracotta/wood gradient */
+.admin-panel-container .sticky.top-\[72px\] button.border-wood-600 {
+  background: linear-gradient(135deg, #d4882e 0%, #a05720 100%) !important;
+  color: white !important;
+  box-shadow: 0 4px 12px rgba(192, 112, 35, 0.25) !important;
 }
 
-html.dark .bg-wood-50 {
-  background-color: #14110d !important;
+.admin-panel-container .sticky.top-\[72px\] button.border-transparent {
+  color: #824624 !important;
 }
 
-/* Dark shadows */
-html.dark .shadow-card {
-  box-shadow: 0 2px 16px 0 rgba(0,0,0,0.45);
+.admin-panel-container .sticky.top-\[72px\] button.border-transparent:hover {
+  background: rgba(212, 136, 46, 0.08) !important;
 }
 
-/* Dark text overrides for legibility */
-html.dark .text-charcoal-900,
-html.dark .text-charcoal-800 {
-  color: #f9eedb !important;
-}
 
-html.dark .text-wood-600 {
-  color: #dc9f4f !important;
-}
 
-html.dark .text-wood-700 {
-  color: #e8be80 !important;
-}
-
-/* Dark border overrides */
-html.dark .border-wood-100 { border-color: #3d1e0f !important; }
-html.dark .border-wood-200 { border-color: #4a2510 !important; }
-
-/* Dark hover backgrounds */
-html.dark .hover\:bg-wood-50:hover { background-color: #1e1a16 !important; }
-
-/* Dark gradient title accent */
-html.dark .text-wood-gradient {
-  background: linear-gradient(135deg, #e8be80 0%, #d4882e 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}

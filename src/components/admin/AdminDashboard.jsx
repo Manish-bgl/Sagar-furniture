@@ -29,7 +29,7 @@ const WARRANTY_OPTIONS = [
 ];
 
 const EMPTY_FORM = {
-  name: '', category: 'living', price: '',
+  name: '', category: 'living', productType: '', price: '',
   material: '', dimensions: '', finish: '',
   warranty: '', description: '',
 };
@@ -201,6 +201,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
     setEditingProduct(product);
     setForm({
       name: product.name || '', category: product.category || 'living',
+      productType: product.productType || '',
       price: product.price || '', material: product.material || '',
       dimensions: product.dimensions || '', finish: product.finish || '',
       warranty: product.warranty || '', description: product.description || '',
@@ -698,7 +699,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
   };
 
   return (
-    <div className="min-h-screen bg-wood-50">
+    <div className="min-h-screen bg-wood-50 admin-panel-container">
       {/* Toast */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-charcoal-900 text-white px-5 py-3 rounded-xl shadow-xl animate-slide-up">
@@ -850,6 +851,16 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                       </select>
                     </div>
                     <div>
+                      <label className="block text-wood-700 text-sm font-medium mb-1">Item Type (e.g. Sofa, Bed, Table)</label>
+                      <select value={form.productType || ''} onChange={(e) => setForm({ ...form, productType: e.target.value })}
+                        className="w-full px-4 py-2.5 border-2 border-wood-200 rounded-xl focus:outline-none focus:border-wood-500 transition-all bg-white text-sm">
+                        <option value="">— Select Type —</option>
+                        {productTypes && productTypes.map((t) => (
+                          <option key={t.id || t.key} value={t.key}>{t.emoji || '📦'} {t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
                       <label className="block text-wood-700 text-sm font-medium mb-1">Price Range</label>
                       <input value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })}
                         placeholder="e.g. ₹25,000 - ₹45,000"
@@ -961,9 +972,17 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                     <p className="text-wood-500 text-sm">{product.material}{product.dimensions ? ` | ${product.dimensions}` : ''}</p>
                     {product.price && <p className="text-wood-700 font-medium text-sm">₹ {product.price}</p>}
                     {product.warranty && <p className="text-wood-400 text-xs mt-0.5">🛡️ {product.warranty}</p>}
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
                       <span className="badge bg-wood-100 text-wood-700">{getCatLabel(product.category)}</span>
-                      <span className="text-wood-300 text-xs">👁️ {(product.viewCount || 0).toLocaleString()} views</span>
+                      {product.productType && (
+                        <span className="badge bg-amber-50 text-amber-700 border border-amber-200">
+                          {(() => {
+                            const foundType = productTypes && productTypes.find(t => t.key === product.productType);
+                            return foundType ? `${foundType.emoji || '📦'} ${foundType.label}` : product.productType;
+                          })()}
+                        </span>
+                      )}
+                      <span className="text-wood-400 text-xs ml-1">👁️ {(product.viewCount || 0).toLocaleString()} views</span>
                     </div>
                   </div>
                   <div className="flex sm:flex-col gap-2 justify-end flex-shrink-0">

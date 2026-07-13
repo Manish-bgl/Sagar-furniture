@@ -10,7 +10,6 @@ import useProducts from '../hooks/useProducts';
 import useCategories from '../hooks/useCategories';
 import useProductTypes from '../hooks/useProductTypes';
 import useBanners from '../hooks/useBanners';
-import useDarkMode from '../hooks/useDarkMode';
 import { incrementViewCount } from '../services/productService';
 import { trackVisit } from '../services/visitorService';
 
@@ -22,17 +21,17 @@ const CatalogPage = () => {
   const { productTypes } = useProductTypes();
   const { banners } = useBanners();
 
-  const { isDark, toggle: toggleDark } = useDarkMode();
-
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeProductType, setActiveProductType] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Track visitor on mount
+  // Track visitor on mount & force clean dark mode
   useEffect(() => {
     trackVisit();
+    document.documentElement.classList.remove('dark');
+    localStorage.removeItem('sagar-dark-mode');
   }, []);
 
   // 🛡️ Product Protection & Anti-Screenshot Handlers (Only for Customer view)
@@ -209,29 +208,7 @@ const CatalogPage = () => {
   const showRecentSection = activeCategory === 'all' && !searchQuery && recentlyAddedProducts.length > 0;
 
   return (
-    <div className="min-h-screen bg-wood-50 dark:bg-charcoal-900 flex flex-col transition-colors duration-300">
-      {/* 🌓 Dark Mode Toggle — floating top-right */}
-      <button
-        onClick={toggleDark}
-        aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        className="fixed top-4 right-4 z-50 w-10 h-10 rounded-full flex items-center justify-center
-          shadow-lg backdrop-blur-sm transition-all duration-300 hover:scale-110 active:scale-95
-          bg-white/90 dark:bg-charcoal-800/90 border border-wood-200 dark:border-wood-900
-          text-wood-700 dark:text-wood-300"
-      >
-        {isDark ? (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-        ) : (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-          </svg>
-        )}
-      </button>
-
+    <div className="min-h-screen bg-wood-50 flex flex-col">
       <HeroSection banners={banners} />
 
       <section id="catalog" className="flex-1 max-w-6xl mx-auto w-full px-4 py-12">

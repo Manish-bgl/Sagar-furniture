@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
@@ -32,7 +31,11 @@ export default {
           800: '#1e1a16',
           900: '#14110d',
           950: '#0a0805',
-        }
+        },
+        peach: '#F7DFC4',
+        walnut: '#3A2A20',
+        terracotta: '#B5583A',
+        gold: '#C9A15C',
       },
       fontFamily: {
         outfit: ['Outfit', 'sans-serif'],

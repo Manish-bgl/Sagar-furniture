@@ -77,7 +77,7 @@ const ProductCard = ({ product, categories = [], onClick }) => {
       </div>
 
       {/* Product Info */}
-      <div className="p-4">
+      <div className="p-4 bg-white transition-colors duration-300">
         <h3 className="font-playfair font-bold text-lg text-charcoal-900 mb-2 line-clamp-1">
           {product.name}
         </h3>
