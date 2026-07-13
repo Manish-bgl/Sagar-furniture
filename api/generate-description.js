@@ -75,7 +75,8 @@ Requirements:
     if (!response.ok) {
       const errData = await response.json();
       console.error('Gemini API error:', errData);
-      return res.status(502).json({ error: 'AI generation failed. Please try again.' });
+      const apiMessage = errData?.error?.message || 'AI generation failed';
+      return res.status(502).json({ error: `Gemini API: ${apiMessage}` });
     }
 
     const data = await response.json();
