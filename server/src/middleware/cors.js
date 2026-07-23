@@ -5,31 +5,40 @@ import cors from 'cors';
 export function createCorsMiddleware() {
   const allowedOrigins = (process.env.CORS_ORIGINS || '')
     .split(',')
-    .map((o) => o.trim().replace(/\/$/, '')) // strip trailing slash to avoid matching errors
+    .map((o) => o.trim().replace(/\/$/, ''))
     .filter(Boolean);
 
-  // In development, allow all localhost ports
+  // Always allow localhost in dev
   if (process.env.NODE_ENV !== 'production') {
     allowedOrigins.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000');
   }
 
+  // Log allowed origins at startup for debugging
+  console.log('🔐 CORS Allowed Origins:', allowedOrigins.length ? allowedOrigins : ['(none set — check CORS_ORIGINS env var)']);
+
   return cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
+      // Allow requests with no origin (Postman, curl, mobile apps)
       if (!origin) return callback(null, true);
 
-      // Clean input origin
       const cleanOrigin = origin.replace(/\/$/, '');
 
+      // 1. Exact match in CORS_ORIGINS list
       if (allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes('*')) {
         return callback(null, true);
       }
 
-      // In development, allow any localhost
+      // 2. Allow any *.vercel.app deploy (covers preview + production Vercel URLs)
+      if (cleanOrigin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+
+      // 3. Allow localhost in development
       if (process.env.NODE_ENV !== 'production' && cleanOrigin.includes('localhost')) {
         return callback(null, true);
       }
 
+      console.warn(`⚠️  CORS blocked: ${cleanOrigin} | Allowed: ${allowedOrigins.join(', ')}`);
       callback(new Error(`CORS: Origin ${origin} not allowed`));
     },
     credentials: true,
