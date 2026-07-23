@@ -20,6 +20,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ─── Global Middleware ───
+app.set('trust proxy', 1);            // Trust Render/Vercel reverse proxy (fixes rate-limiter X-Forwarded-For error)
 app.use(helmet());                    // Security headers
 app.use(createCorsMiddleware());      // CORS whitelist
 app.use(generalRateLimiter);          // General rate limiting
