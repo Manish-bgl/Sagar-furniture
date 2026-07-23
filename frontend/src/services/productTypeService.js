@@ -1,18 +1,15 @@
 import {
   collection,
-  addDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
   onSnapshot,
   query,
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { api } from './api';
 
 const COLLECTION = 'productTypes';
 
-// Default item types to seed if collection is empty
+// Default item types (for reference only — seeding goes through backend)
 export const DEFAULT_PRODUCT_TYPES = [
   { key: 'bed', label: 'Bed', emoji: '🛏️', keywords: 'bed' },
   { key: 'sofa', label: 'Sofa', emoji: '🛋️', keywords: 'sofa, couch, settee' },
@@ -27,38 +24,29 @@ export const DEFAULT_PRODUCT_TYPES = [
 ];
 
 // -------------------------------------------------------
-// ➕ Add Item Type (Product Type)
+// ➕ Add Item Type via Backend API
 // -------------------------------------------------------
 export const addProductType = async (label, emoji = '📦', keywords = '') => {
-  const key = label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-  const docRef = await addDoc(collection(db, COLLECTION), {
-    key,
-    label,
-    emoji,
-    keywords,
-    createdAt: serverTimestamp(),
-  });
-  return docRef.id;
+  const result = await api.post('/api/product-types', { label, emoji, keywords });
+  return result.id;
 };
 
 // -------------------------------------------------------
-// 🗑️ Delete Item Type
+// 🗑️ Delete Item Type via Backend API
 // -------------------------------------------------------
 export const deleteProductType = async (id) => {
-  await deleteDoc(doc(db, COLLECTION, id));
+  await api.delete(`/api/product-types/${id}`);
 };
 
 // -------------------------------------------------------
-// 🌱 Seed Default Item Types
+// 🌱 Seed Default Item Types via Backend API
 // -------------------------------------------------------
 export const seedDefaultProductTypes = async () => {
-  for (const item of DEFAULT_PRODUCT_TYPES) {
-    await addProductType(item.label, item.emoji, item.keywords);
-  }
+  await api.post('/api/product-types/seed');
 };
 
 // -------------------------------------------------------
-// 📡 Real-time Item Types Listener
+// 📡 Real-time Item Types Listener (stays client-side)
 // -------------------------------------------------------
 export const subscribeToProductTypes = (callback) => {
   const q = query(collection(db, COLLECTION), orderBy('createdAt', 'asc'));

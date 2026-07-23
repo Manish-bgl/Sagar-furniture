@@ -1,21 +1,17 @@
 import {
   collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
   onSnapshot,
   query,
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { api } from './api';
 import { uploadImage } from './productService';
 
 const COLLECTION = 'banners';
 
 // -------------------------------------------------------
-// ➕ Add Banner
+// ➕ Add Banner via Backend API
 // -------------------------------------------------------
 export const addBanner = async (bannerData, imageFile) => {
   let imageUrl = '';
@@ -27,21 +23,16 @@ export const addBanner = async (bannerData, imageFile) => {
     imagePublicId = result.publicId;
   }
 
-  const docRef = await addDoc(collection(db, COLLECTION), {
-    title: bannerData.title || '',
-    subtitle: bannerData.subtitle || '',
-    linkUrl: bannerData.linkUrl || '',
+  const apiResult = await api.post('/api/banners', {
+    ...bannerData,
     imageUrl,
     imagePublicId,
-    active: true,
-    order: bannerData.order || 1,
-    createdAt: serverTimestamp(),
   });
-  return docRef.id;
+  return apiResult.id;
 };
 
 // -------------------------------------------------------
-// ✏️ Update Banner
+// ✏️ Update Banner via Backend API
 // -------------------------------------------------------
 export const updateBanner = async (id, bannerData, imageFile) => {
   let imageUrl = bannerData.imageUrl || '';
@@ -53,32 +44,29 @@ export const updateBanner = async (id, bannerData, imageFile) => {
     imagePublicId = result.publicId;
   }
 
-  const docRef = doc(db, COLLECTION, id);
-  await updateDoc(docRef, {
+  await api.put(`/api/banners/${id}`, {
     ...bannerData,
     imageUrl,
     imagePublicId,
-    updatedAt: serverTimestamp(),
   });
 };
 
 // -------------------------------------------------------
-// 🗑️ Delete Banner
+// 🗑️ Delete Banner via Backend API
 // -------------------------------------------------------
 export const deleteBanner = async (id) => {
-  await deleteDoc(doc(db, COLLECTION, id));
+  await api.delete(`/api/banners/${id}`);
 };
 
 // -------------------------------------------------------
-// 🔄 Toggle Banner Active/Inactive
+// 🔄 Toggle Banner Active/Inactive via Backend API
 // -------------------------------------------------------
-export const toggleBannerActive = async (id, currentValue) => {
-  const docRef = doc(db, COLLECTION, id);
-  await updateDoc(docRef, { active: !currentValue });
+export const toggleBannerActive = async (id) => {
+  await api.patch(`/api/banners/${id}/toggle`);
 };
 
 // -------------------------------------------------------
-// 📡 Real-time Banners Listener
+// 📡 Real-time Banners Listener (stays client-side)
 // -------------------------------------------------------
 export const subscribeToBanners = (callback) => {
   const q = query(collection(db, COLLECTION), orderBy('order', 'asc'));

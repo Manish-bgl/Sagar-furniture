@@ -1,10 +1,11 @@
-import { collection, addDoc, serverTimestamp, onSnapshot, query, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { api } from './api';
 
 const COLLECTION = 'visits';
 
 // -------------------------------------------------------
-// 📈 Track Website Visitor
+// 📈 Track Website Visitor via Backend API (public)
 // -------------------------------------------------------
 export const trackVisit = async () => {
   try {
@@ -18,11 +19,7 @@ export const trackVisit = async () => {
     // Use sessionStorage to only track one visit count per browser tab session
     const sessionTracked = sessionStorage.getItem('sf_session_tracked');
     if (!sessionTracked) {
-      await addDoc(collection(db, COLLECTION), {
-        visitorId,
-        userAgent: navigator.userAgent,
-        timestamp: serverTimestamp(),
-      });
+      await api.post('/api/visits', { visitorId });
       sessionStorage.setItem('sf_session_tracked', 'true');
     }
   } catch (error) {
@@ -31,17 +28,16 @@ export const trackVisit = async () => {
 };
 
 // -------------------------------------------------------
-// 📡 Real-time Visits Listener (Admin Stats)
+// 📡 Real-time Visits Listener (Admin Stats — stays client-side)
 // -------------------------------------------------------
 export const subscribeToVisits = (callback) => {
-  // Query visits collection
   const q = query(collection(db, COLLECTION));
   return onSnapshot(q, (snapshot) => {
     const visits = snapshot.docs.map((d) => d.data());
-    
+
     // Calculate unique visitors
     const uniqueIds = new Set(visits.map(v => v.visitorId));
-    
+
     callback({
       totalVisits: visits.length,
       uniqueVisitors: uniqueIds.size,

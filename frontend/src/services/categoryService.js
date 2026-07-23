@@ -1,19 +1,15 @@
 import {
   collection,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
   onSnapshot,
   query,
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { api } from './api';
 
 const COLLECTION = 'categories';
 
-// Default categories to seed if collection is empty
+// Default categories (for reference only — seeding goes through backend)
 export const DEFAULT_CATEGORIES = [
   { name: 'Living Room', emoji: '🛋️', order: 1 },
   { name: 'Bedroom', emoji: '🛏️', order: 2 },
@@ -22,47 +18,36 @@ export const DEFAULT_CATEGORIES = [
 ];
 
 // -------------------------------------------------------
-// ➕ Add Category
+// ➕ Add Category via Backend API
 // -------------------------------------------------------
 export const addCategory = async (name, emoji = '📦', order = 99) => {
-  const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-  const docRef = await addDoc(collection(db, COLLECTION), {
-    name,
-    emoji,
-    slug: id,
-    order,
-    createdAt: serverTimestamp(),
-  });
-  return docRef.id;
+  const result = await api.post('/api/categories', { name, emoji, order });
+  return result.id;
 };
 
 // -------------------------------------------------------
-// ✏️ Update Category
+// ✏️ Update Category via Backend API
 // -------------------------------------------------------
 export const updateCategory = async (id, name, emoji) => {
-  const docRef = doc(db, COLLECTION, id);
-  const slug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-  await updateDoc(docRef, { name, emoji, slug, updatedAt: serverTimestamp() });
+  await api.put(`/api/categories/${id}`, { name, emoji });
 };
 
 // -------------------------------------------------------
-// 🗑️ Delete Category
+// 🗑️ Delete Category via Backend API
 // -------------------------------------------------------
 export const deleteCategory = async (id) => {
-  await deleteDoc(doc(db, COLLECTION, id));
+  await api.delete(`/api/categories/${id}`);
 };
 
 // -------------------------------------------------------
-// 🌱 Seed Default Categories (if collection empty)
+// 🌱 Seed Default Categories via Backend API
 // -------------------------------------------------------
 export const seedDefaultCategories = async () => {
-  for (const cat of DEFAULT_CATEGORIES) {
-    await addCategory(cat.name, cat.emoji, cat.order);
-  }
+  await api.post('/api/categories/seed');
 };
 
 // -------------------------------------------------------
-// 📡 Real-time Categories Listener
+// 📡 Real-time Categories Listener (stays client-side)
 // -------------------------------------------------------
 export const subscribeToCategories = (callback) => {
   const q = query(collection(db, COLLECTION), orderBy('order', 'asc'));

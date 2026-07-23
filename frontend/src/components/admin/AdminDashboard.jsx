@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import JSZip from 'jszip';
+// GoogleGenerativeAI removed — AI description now handled by backend API
 import { addProduct, updateProduct, deleteProduct, toggleFeatured, bulkAddProducts } from '../../services/productService';
 import { addCategory, updateCategory, deleteCategory, seedDefaultCategories } from '../../services/categoryService';
 import { addBanner, updateBanner, deleteBanner, toggleBannerActive } from '../../services/bannerService';
@@ -165,39 +166,53 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
   // AI Description Generator Handler
+  // Calls backend API — Gemini key stays server-side only
   const [generatingDescription, setGeneratingDescription] = useState(false);
+  const [aiCooldown, setAiCooldown] = useState(0); // seconds remaining in cooldown
+
   const handleGenerateDescription = async () => {
     if (!form.name) {
       showToast('⚠️ Please enter the Product Name first to generate a description!');
       return;
     }
+    if (aiCooldown > 0) {
+      showToast(`⏳ Please wait ${aiCooldown}s before generating again.`);
+      return;
+    }
+
     setGeneratingDescription(true);
     try {
-      const response = await fetch('/api/generate-description', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          category: form.category,
-          material: form.material,
-          dimensions: form.dimensions,
-          finish: form.finish,
-          warranty: form.warranty,
-        }),
+      // Import api client for authenticated backend call
+      const { api } = await import('../../services/api');
+      const data = await api.post('/api/ai/generate-description', {
+        name: form.name,
+        category: form.category,
+        material: form.material,
+        dimensions: form.dimensions,
+        finish: form.finish,
+        warranty: form.warranty,
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || 'AI generation failed');
-      }
-
-      const data = await response.json();
       if (data.description) {
         setForm(prev => ({ ...prev, description: data.description }));
         showToast('✨ AI Description generated successfully!');
       }
     } catch (err) {
-      showToast('❌ Error: ' + err.message);
+      const msg = err.message || '';
+      if (err.status === 429 || msg.includes('429') || msg.toLowerCase().includes('rate')) {
+        // Start cooldown timer
+        const cooldownSeconds = 60;
+        setAiCooldown(cooldownSeconds);
+        const interval = setInterval(() => {
+          setAiCooldown(prev => {
+            if (prev <= 1) { clearInterval(interval); return 0; }
+            return prev - 1;
+          });
+        }, 1000);
+        showToast('⏳ Rate limit hit! Please wait 60s and try again.');
+      } else {
+        showToast('❌ Error: ' + msg);
+      }
     } finally {
       setGeneratingDescription(false);
     }
@@ -303,7 +318,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
 
   const handleToggleFeatured = async (product) => {
     try {
-      await toggleFeatured(product.id, product.featured || false);
+      await toggleFeatured(product.id);
       showToast(product.featured ? '⭐ Removed from featured' : '⭐ Marked as featured!');
     } catch (err) { showToast('❌ Error: ' + err.message); }
   };
@@ -919,7 +934,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                       <label className="block text-wood-700 text-sm font-medium">Description</label>
                       <button
                         type="button"
-                        disabled={generatingDescription}
+                        disabled={generatingDescription || aiCooldown > 0}
                         onClick={handleGenerateDescription}
                         className="text-xs bg-wood-100 hover:bg-wood-200 text-wood-700 px-3 py-1.5 rounded-xl font-semibold flex items-center gap-1 transition-all disabled:opacity-75"
                       >
@@ -927,6 +942,10 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                           <>
                             <div className="w-3 h-3 border-2 border-wood-500/30 border-t-wood-700 rounded-full animate-spin" />
                             Generating...
+                          </>
+                        ) : aiCooldown > 0 ? (
+                          <>
+                            ⏳ Wait {aiCooldown}s...
                           </>
                         ) : (
                           <>
@@ -1316,7 +1335,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                         <p className="text-wood-300 text-xs mt-1">Order: {banner.order}</p>
                       </div>
                       <div className="flex sm:flex-col gap-2">
-                        <button onClick={() => toggleBannerActive(banner.id, banner.active)}
+                        <button onClick={() => toggleBannerActive(banner.id)}
                           className="px-3 py-1.5 bg-wood-100 text-wood-700 rounded-lg text-sm hover:bg-wood-200 transition-colors">
                           {banner.active ? '⏸️ Disable' : '✅ Enable'}
                         </button>
