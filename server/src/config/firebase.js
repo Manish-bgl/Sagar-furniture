@@ -13,32 +13,42 @@ function initializeFirebase() {
   }
 
   const projectId = process.env.FIREBASE_PROJECT_ID;
-  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+  const serviceAccountEnvPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
 
   let serviceAccount = null;
 
-  // 1. Try loading from service account path if configured
-  if (serviceAccountPath) {
+  // 1. Try Render Secret File path (most reliable for production)
+  const renderSecretPath = '/etc/secrets/serviceAccountKey.json';
+  const pathsToTry = [
+    renderSecretPath,                                          // Render Secret File (production)
+    serviceAccountEnvPath && path.resolve(process.cwd(), serviceAccountEnvPath), // custom env path
+    path.resolve(process.cwd(), './serviceAccountKey.json'),  // local dev fallback
+  ].filter(Boolean);
+
+  for (const filePath of pathsToTry) {
     try {
-      const resolvedPath = path.resolve(process.cwd(), serviceAccountPath);
-      if (fs.existsSync(resolvedPath)) {
-        const fileContent = fs.readFileSync(resolvedPath, 'utf8');
+      if (fs.existsSync(filePath)) {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
         serviceAccount = JSON.parse(fileContent);
-        console.log(`✅ Firebase Admin loaded credentials from: ${serviceAccountPath}`);
+        console.log(`✅ Firebase Admin loaded credentials from: ${filePath}`);
+        break;
       }
     } catch (err) {
-      console.error(`❌ Failed to read Firebase Service Account from path (${serviceAccountPath}):`, err.message);
+      console.warn(`⚠️  Could not load service account from ${filePath}:`, err.message);
     }
   }
 
-  // 2. Fallback to inline JSON string in environment variable
-  if (!serviceAccount && serviceAccountJson && serviceAccountJson.trim().startsWith('{')) {
+  // 2. Fallback: try inline JSON string from env var
+  if (!serviceAccount && serviceAccountJson) {
     try {
-      serviceAccount = JSON.parse(serviceAccountJson);
-      console.log('✅ Firebase Admin loaded credentials from env string');
+      // Handle both escaped and unescaped JSON strings
+      const cleaned = serviceAccountJson.trim();
+      serviceAccount = JSON.parse(cleaned);
+      console.log('✅ Firebase Admin loaded credentials from FIREBASE_SERVICE_ACCOUNT env var');
     } catch (err) {
       console.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT JSON string:', err.message);
+      console.error('   Tip: Use Render Secret Files instead — upload serviceAccountKey.json at /etc/secrets/serviceAccountKey.json');
     }
   }
 
@@ -50,13 +60,11 @@ function initializeFirebase() {
       });
       console.log('✅ Firebase Admin SDK initialized successfully');
     } catch (err) {
-      console.error('❌ Failed to initialize Firebase Admin cert:', err.message);
-      console.log('⚠️  Falling back to application default credentials...');
+      console.error('❌ Failed to initialize Firebase Admin:', err.message);
       admin.initializeApp({ projectId });
     }
   } else {
-    // 3. Fallback: use application default credentials (works on GCP/Cloud Run/implicit auth)
-    console.log('⚠️  No Firebase Service Account credentials loaded. Using application default credentials.');
+    console.warn('⚠️  No Firebase credentials found. Using application default credentials.');
     admin.initializeApp({ projectId });
   }
 
