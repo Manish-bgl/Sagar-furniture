@@ -5,7 +5,7 @@ import cors from 'cors';
 export function createCorsMiddleware() {
   const allowedOrigins = (process.env.CORS_ORIGINS || '')
     .split(',')
-    .map((o) => o.trim())
+    .map((o) => o.trim().replace(/\/$/, '')) // strip trailing slash to avoid matching errors
     .filter(Boolean);
 
   // In development, allow all localhost ports
@@ -18,12 +18,15 @@ export function createCorsMiddleware() {
       // Allow requests with no origin (mobile apps, Postman, curl, server-to-server)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
+      // Clean input origin
+      const cleanOrigin = origin.replace(/\/$/, '');
+
+      if (allowedOrigins.includes(cleanOrigin) || allowedOrigins.includes('*')) {
         return callback(null, true);
       }
 
       // In development, allow any localhost
-      if (process.env.NODE_ENV !== 'production' && origin.includes('localhost')) {
+      if (process.env.NODE_ENV !== 'production' && cleanOrigin.includes('localhost')) {
         return callback(null, true);
       }
 

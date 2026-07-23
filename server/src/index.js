@@ -54,6 +54,15 @@ app.use('/api/{*path}', (req, res) => {
 app.use((err, req, res, _next) => {
   console.error('🔴 Unhandled Error:', err);
 
+  // Set CORS headers for the error response so browser doesn't block it
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+
   // Multer file size error
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(413).json({ error: 'File too large. Maximum 10MB allowed.' });
