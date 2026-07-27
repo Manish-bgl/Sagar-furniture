@@ -1,5 +1,5 @@
 // server/src/routes/ai.js
-// Gemini AI description generator — API key stays server-side only
+// Groq AI description generator — API key stays server-side only
 import { Router } from 'express';
 import https from 'https';
 import { verifyAuth, requireAdmin } from '../middleware/auth.js';
@@ -18,9 +18,9 @@ router.post('/generate-description', aiRateLimiter, verifyAuth, requireAdmin, as
       return res.status(400).json({ error: 'Product name is required' });
     }
 
-    const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-    if (!GEMINI_API_KEY) {
-      return res.status(500).json({ error: 'AI service not configured. Add GEMINI_API_KEY to server .env' });
+    const GROQ_API_KEY = process.env.GROQ_API_KEY;
+    if (!GROQ_API_KEY) {
+      return res.status(500).json({ error: 'AI service not configured. Add GROQ_API_KEY to server .env' });
     }
 
     // Build prompt
@@ -47,14 +47,14 @@ Requirements:
 - End with a subtle note about longevity or family use
 - Return ONLY the description text, no labels or quotes`;
 
-    // Call Gemini API using native HTTPS (no external dependency needed)
-    const description = await callGeminiApi(GEMINI_API_KEY, prompt);
+    // Call Groq API using native HTTPS (no external dependency needed)
+    const description = await callGroqApi(GROQ_API_KEY, prompt);
     res.json({ description });
   } catch (err) {
     console.error('AI generation error:', err.message);
 
     if (err.statusCode === 429) {
-      return res.status(429).json({ error: 'Gemini API rate limit exceeded. Please wait 1 minute.' });
+      return res.status(429).json({ error: 'Groq API rate limit exceeded. Please wait 1 minute.' });
     }
 
     res.status(500).json({ error: 'AI generation failed: ' + err.message });
@@ -62,23 +62,26 @@ Requirements:
 });
 
 /**
- * Call Gemini API using Node.js HTTPS module
+ * Call Groq API using Node.js HTTPS module
  * Returns the generated text
  */
-function callGeminiApi(apiKey, prompt) {
+function callGroqApi(apiKey, prompt) {
   return new Promise((resolve, reject) => {
     const postData = JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.7, maxOutputTokens: 150 },
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 150,
     });
 
     const options = {
-      hostname: 'generativelanguage.googleapis.com',
+      hostname: 'api.groq.com',
       port: 443,
-      path: `/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      path: '/openai/v1/chat/completions',
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Length': Buffer.byteLength(postData),
       },
     };
@@ -97,7 +100,7 @@ function callGeminiApi(apiKey, prompt) {
             return;
           }
 
-          const description = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          const description = data?.choices?.[0]?.message?.content?.trim();
           if (!description) {
             reject(new Error('AI returned empty response'));
             return;
