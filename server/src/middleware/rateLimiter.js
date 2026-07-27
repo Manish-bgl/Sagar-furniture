@@ -1,5 +1,5 @@
 // server/src/middleware/rateLimiter.js
-// Rate limiting — prevents abuse of expensive endpoints (AI, uploads)
+// Rate limiting — prevents abuse of expensive endpoints (AI, uploads, visits)
 import rateLimit from 'express-rate-limit';
 
 // AI Description endpoint — max 5 requests per minute per IP
@@ -25,6 +25,15 @@ export const generalRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,
   message: { error: 'Too many requests — please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Visits tracking — max 5 visits per 10 minutes per IP (prevents Firestore spam)
+export const visitsRateLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 5,
+  message: { error: 'Too many visit requests.' },
   standardHeaders: true,
   legacyHeaders: false,
 });

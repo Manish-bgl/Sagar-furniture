@@ -3,14 +3,15 @@
 import { Router } from 'express';
 import { db } from '../config/firebase.js';
 import { FieldValue } from 'firebase-admin/firestore';
+import { visitsRateLimiter } from '../middleware/rateLimiter.js';
 
 const router = Router();
 const COLLECTION = 'visits';
 
 // -------------------------------------------------------
-// 📈 POST /api/visits — Track website visitor (public)
+// 📈 POST /api/visits — Track website visitor (rate limited)
 // -------------------------------------------------------
-router.post('/', async (req, res) => {
+router.post('/', visitsRateLimiter, async (req, res) => {
   try {
     const { visitorId } = req.body;
 
