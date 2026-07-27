@@ -33,19 +33,18 @@ router.post('/generate-description', aiRateLimiter, verifyAuth, requireAdmin, as
       warranty ? `Warranty: ${warranty}` : null,
     ].filter(Boolean).join('\n');
 
-    const prompt = `You are an expert furniture copywriter for an Indian furniture store called "Sagar Furniture". 
-Write a compelling, professional product description in English for the following furniture item.
+    const prompt = `You are a product description writer for "Sagar Furniture", an Indian furniture store.
+Write a short and simple product description in plain English for the following furniture item.
 
 ${productDetails}
 
 Requirements:
-- 2-3 sentences, max 80 words
-- Highlight craftsmanship, quality, and durability
-- Use warm, inviting language suitable for Indian families
-- Mention the material and finish naturally
-- Do NOT use generic phrases like "high quality" or "best product"
-- End with a subtle note about longevity or family use
-- Return ONLY the description text, no labels or quotes`;
+- MAXIMUM 2 sentences, max 40 words total
+- Use simple, everyday language that anyone can understand
+- Mention the material and key feature naturally
+- No fancy or complex words
+- Do NOT use phrases like "high quality", "premium", "craftsmanship", "elevate"
+- Return ONLY the description text, nothing else`;
 
     // Call Groq API using native HTTPS (no external dependency needed)
     const description = await callGroqApi(GROQ_API_KEY, prompt);
