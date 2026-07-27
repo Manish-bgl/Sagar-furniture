@@ -7,6 +7,7 @@ import { addCategory, updateCategory, deleteCategory, seedDefaultCategories } fr
 import { addBanner, updateBanner, deleteBanner, toggleBannerActive } from '../../services/bannerService';
 import { addProductType, deleteProductType, seedDefaultProductTypes } from '../../services/productTypeService';
 import useProductTypes from '../../hooks/useProductTypes';
+import { subscribeToEvents } from '../../services/analyticsService';
 
 const ADMIN_PAGE_SIZE = 20;
 
@@ -136,6 +137,47 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
   // Filtering & traffic details modal states
   const [filterFeaturedOnly, setFilterFeaturedOnly] = useState(false);
   const [showTrafficModal, setShowTrafficModal] = useState(false);
+
+  // Analytics events state
+  const [analyticsEvents, setAnalyticsEvents] = useState([]);
+
+  useEffect(() => {
+    const unsub = subscribeToEvents(setAnalyticsEvents);
+    return () => unsub();
+  }, []);
+
+  const analyticsStats = useMemo(() => {
+    const whatsappClicks = analyticsEvents.filter(e => e.type === 'whatsapp_click');
+    const downloads = analyticsEvents.filter(e => e.type === 'catalog_download');
+    const searches = analyticsEvents.filter(e => e.type === 'search');
+
+    // Top products by WhatsApp clicks
+    const productClickMap = {};
+    whatsappClicks.forEach(e => {
+      if (e.productName) productClickMap[e.productName] = (productClickMap[e.productName] || 0) + 1;
+    });
+    const topProducts = Object.entries(productClickMap)
+      .sort((a, b) => b[1] - a[1]).slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+
+    // Top search queries
+    const searchMap = {};
+    searches.forEach(e => {
+      if (e.query) searchMap[e.query] = (searchMap[e.query] || 0) + 1;
+    });
+    const topSearches = Object.entries(searchMap)
+      .sort((a, b) => b[1] - a[1]).slice(0, 10)
+      .map(([query, count]) => ({ query, count }));
+
+    return {
+      totalWhatsAppClicks: whatsappClicks.length,
+      totalDownloads: downloads.length,
+      totalSearches: searches.length,
+      topProducts,
+      topSearches,
+      recentEvents: analyticsEvents.slice(0, 15),
+    };
+  }, [analyticsEvents]);
 
   const totalViews = useMemo(() => products.reduce((sum, p) => sum + (p.viewCount || 0), 0), [products]);
 
@@ -740,6 +782,7 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
 
   const TABS = [
     { id: 'dashboard', label: '📊 Dashboard' },
+    { id: 'analytics', label: '📡 Analytics' },
     { id: 'products', label: '📦 Products' },
     { id: 'categories', label: '📂 Categories' },
     { id: 'types', label: '🔵 Item Types' },
@@ -856,6 +899,105 @@ const AdminDashboard = ({ products, categories, banners, visitsStats = { totalVi
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ============================= */}
+        {/* TAB: ANALYTICS                */}
+        {/* ============================= */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-2xl shadow-card p-5 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center text-2xl">📱</div>
+                <div>
+                  <p className="text-wood-500 text-[10px] uppercase tracking-wider font-semibold">WhatsApp Clicks</p>
+                  <p className="font-playfair text-2xl font-bold text-charcoal-900">{analyticsStats.totalWhatsAppClicks}</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl shadow-card p-5 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center text-2xl">📥</div>
+                <div>
+                  <p className="text-wood-500 text-[10px] uppercase tracking-wider font-semibold">Catalog Downloads</p>
+                  <p className="font-playfair text-2xl font-bold text-charcoal-900">{analyticsStats.totalDownloads}</p>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl shadow-card p-5 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-2xl">🔍</div>
+                <div>
+                  <p className="text-wood-500 text-[10px] uppercase tracking-wider font-semibold">Total Searches</p>
+                  <p className="font-playfair text-2xl font-bold text-charcoal-900">{analyticsStats.totalSearches}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Top Products by WhatsApp */}
+              <div className="bg-white rounded-2xl shadow-card p-6">
+                <h3 className="font-playfair text-lg font-bold text-charcoal-900 mb-4">📱 Top Products by WhatsApp Inquiry</h3>
+                {analyticsStats.topProducts.length === 0 ? (
+                  <p className="text-wood-400 text-sm">No WhatsApp clicks tracked yet. Data will appear here as customers inquire.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {analyticsStats.topProducts.map((p, idx) => (
+                      <div key={p.name} className="flex items-center gap-3">
+                        <span className="font-bold text-wood-300 w-5 text-sm">{idx + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-charcoal-900 text-sm truncate">{p.name}</p>
+                          <div className="mt-1 h-1.5 bg-wood-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-green-500 rounded-full"
+                              style={{ width: `${(p.count / analyticsStats.topProducts[0].count) * 100}%` }} />
+                          </div>
+                        </div>
+                        <span className="font-bold text-green-600 text-sm">{p.count}x</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Top Searches */}
+              <div className="bg-white rounded-2xl shadow-card p-6">
+                <h3 className="font-playfair text-lg font-bold text-charcoal-900 mb-4">🔍 Top Search Terms</h3>
+                {analyticsStats.topSearches.length === 0 ? (
+                  <p className="text-wood-400 text-sm">No search data yet. Search queries (3+ chars) will appear here.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {analyticsStats.topSearches.map((s) => (
+                      <span key={s.query}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                        {s.query}
+                        <span className="bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded-full text-[10px] font-bold">{s.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Recent Events Feed */}
+            <div className="bg-white rounded-2xl shadow-card p-6">
+              <h3 className="font-playfair text-lg font-bold text-charcoal-900 mb-4">🕐 Recent Activity</h3>
+              {analyticsStats.recentEvents.length === 0 ? (
+                <p className="text-wood-400 text-sm">No events yet. Activity will appear here in real-time.</p>
+              ) : (
+                <div className="space-y-2">
+                  {analyticsStats.recentEvents.map((e) => {
+                    const icons = { whatsapp_click: '📱', catalog_download: '📥', search: '🔍', category_download: '📁' };
+                    const labels = { whatsapp_click: `WhatsApp → ${e.productName || ''}`, catalog_download: `Downloaded: ${e.category || 'all'} catalog`, search: `Searched: "${e.query || ''}"`, category_download: `Category download: ${e.category}` };
+                    const time = e.timestamp?.toDate ? e.timestamp.toDate().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '';
+                    return (
+                      <div key={e.id} className="flex items-center gap-3 py-2 border-b border-wood-50 last:border-0">
+                        <span className="text-lg">{icons[e.type] || '📊'}</span>
+                        <span className="flex-1 text-sm text-charcoal-800 truncate">{labels[e.type] || e.type}</span>
+                        <span className="text-xs text-wood-400 whitespace-nowrap">{e.device === 'mobile' ? '📱' : '💻'} {time}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

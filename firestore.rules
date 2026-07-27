@@ -46,5 +46,10 @@ service cloud.firestore {
       allow create: if true;
       allow read, update, delete: if isAdmin();
     }
+    // 📊 Analytics Events (anyone can track, only admin can view/delete)
+    match /events/{eventId} {
+      allow create: if true;
+      allow read, delete: if isAdmin();
+    }
   }
 }

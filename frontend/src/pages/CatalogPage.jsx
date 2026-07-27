@@ -12,6 +12,7 @@ import useProductTypes from '../hooks/useProductTypes';
 import useBanners from '../hooks/useBanners';
 import { incrementViewCount } from '../services/productService';
 import { trackVisit } from '../services/visitorService';
+import { trackCatalogDownload, trackSearch } from '../services/analyticsService';
 
 const PRODUCTS_PER_PAGE = 50;
 
@@ -33,6 +34,15 @@ const CatalogPage = () => {
     document.documentElement.classList.remove('dark');
     localStorage.removeItem('sagar-dark-mode');
   }, []);
+
+  // Track search query (debounced — fires 1.5s after user stops typing)
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 3) return;
+    const timer = setTimeout(() => {
+      trackSearch(searchQuery.trim());
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // 🛡️ Product Protection & Anti-Screenshot Handlers (Only for Customer view)
   useEffect(() => {
@@ -253,6 +263,7 @@ const CatalogPage = () => {
               href="/print-catalog"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => trackCatalogDownload('all')}
               className="relative inline-flex items-center gap-3 px-7 py-3.5 rounded-2xl font-bold text-sm text-white overflow-hidden group transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
               style={{ background: 'linear-gradient(135deg, #92400e 0%, #b45309 50%, #d97706 100%)' }}
             >
@@ -273,6 +284,7 @@ const CatalogPage = () => {
                 href={`/print-catalog?category=${activeCategory}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackCatalogDownload(activeCategory)}
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl font-semibold text-sm border-2 border-wood-400 text-wood-700 bg-wood-50 hover:bg-wood-100 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

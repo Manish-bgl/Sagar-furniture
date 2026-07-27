@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { trackWhatsApp } from '../../services/analyticsService';
 
 const PLACEHOLDER_IMAGE = 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=800&q=80';
 const WA_NUMBER = '918476815120';
@@ -273,6 +274,7 @@ const ProductModal = ({ product, products = [], categories = [], onClose, onProd
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackWhatsApp(product?.id, product?.name, product?.category)}
                 className="flex-1 flex items-center justify-center gap-2.5 text-white font-bold py-3.5
                   rounded-2xl transition-all hover:scale-[1.02] active:scale-[0.98] text-sm shadow-md"
                 style={{ background: 'linear-gradient(135deg, #25D366 0%, #1DA851 100%)' }}
