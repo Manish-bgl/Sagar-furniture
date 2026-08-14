@@ -9,6 +9,49 @@ const router = Router();
 const COLLECTION = 'products';
 
 // -------------------------------------------------------
+// 📦 GET /api/products — List all products (public)
+// -------------------------------------------------------
+router.get('/', async (req, res) => {
+  try {
+    const { category, featured, limit: limitParam } = req.query;
+    let query = db.collection(COLLECTION);
+
+    if (category) query = query.where('category', '==', category);
+    if (featured === 'true') query = query.where('featured', '==', true);
+
+    const limitVal = parseInt(limitParam) || 500;
+    query = query.limit(limitVal);
+
+    const snapshot = await query.get();
+    const products = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+    res.json({ products, total: products.length });
+  } catch (err) {
+    console.error('Error fetching products:', err);
+    res.status(500).json({ error: 'Failed to fetch products: ' + err.message });
+  }
+});
+
+// -------------------------------------------------------
+// 🔍 GET /api/products/:id — Get single product (public)
+// -------------------------------------------------------
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doc = await db.collection(COLLECTION).doc(id).get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    res.json({ id: doc.id, ...doc.data() });
+  } catch (err) {
+    console.error('Error fetching product:', err);
+    res.status(500).json({ error: 'Failed to fetch product: ' + err.message });
+  }
+});
+
+// -------------------------------------------------------
 // ➕ POST /api/products — Add new product (admin only)
 // -------------------------------------------------------
 router.post('/', verifyAuth, requireAdmin, async (req, res) => {

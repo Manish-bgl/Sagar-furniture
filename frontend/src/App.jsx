@@ -11,17 +11,32 @@ import useCategories from './hooks/useCategories';
 import useBanners from './hooks/useBanners';
 import useVisits from './hooks/useVisits';
 
-const AdminRoute = () => {
-  const [user, setUser] = useState(undefined); // undefined = loading
+// Inner component — only renders when user is confirmed logged in
+// This ensures Firestore admin-only listeners (visits, events) only
+// subscribe AFTER auth is established, preventing permission-denied errors.
+const AuthenticatedAdmin = ({ user, onLogout }) => {
   const { products } = useProducts();
   const { categories } = useCategories();
   const { banners } = useBanners();
   const { stats: visitsStats } = useVisits();
 
+  return (
+    <AdminDashboard
+      products={products}
+      categories={categories}
+      banners={banners}
+      visitsStats={visitsStats}
+      onLogout={onLogout}
+      userEmail={user.email}
+    />
+  );
+};
+
+const AdminRoute = () => {
+  const [user, setUser] = useState(undefined); // undefined = loading
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      // Frontend only checks if user is logged in for UI state
-      // Actual admin authorization is enforced by backend middleware
       setUser(u || null);
     });
     return () => unsubscribe();
@@ -45,17 +60,9 @@ const AdminRoute = () => {
     return <AdminLoginPage onLogin={() => {}} />;
   }
 
-  return (
-    <AdminDashboard 
-      products={products} 
-      categories={categories} 
-      banners={banners} 
-      visitsStats={visitsStats}
-      onLogout={handleLogout} 
-      userEmail={user.email} 
-    />
-  );
+  return <AuthenticatedAdmin user={user} onLogout={handleLogout} />;
 };
+
 
 function App() {
   return (
