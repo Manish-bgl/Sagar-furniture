@@ -32,16 +32,25 @@ export const trackVisit = async () => {
 // -------------------------------------------------------
 export const subscribeToVisits = (callback) => {
   const q = query(collection(db, COLLECTION));
-  return onSnapshot(q, (snapshot) => {
-    const visits = snapshot.docs.map((d) => d.data());
-
-    // Calculate unique visitors
-    const uniqueIds = new Set(visits.map(v => v.visitorId));
-
-    callback({
-      totalVisits: visits.length,
-      uniqueVisitors: uniqueIds.size,
-      visits: visits,
-    });
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const visits = snapshot.docs.map((d) => d.data());
+      const uniqueIds = new Set(visits.map(v => v.visitorId));
+      callback({
+        totalVisits: visits.length,
+        uniqueVisitors: uniqueIds.size,
+        visits: visits,
+      });
+    },
+    (error) => {
+      // Silently handle permission errors — happens if admin_users doc missing
+      if (error.code === 'permission-denied') {
+        console.warn('Visits: insufficient permissions — check admin_users collection');
+        callback({ totalVisits: 0, uniqueVisitors: 0, visits: [] });
+      } else {
+        console.error('Visits listener error:', error);
+      }
+    }
+  );
 };

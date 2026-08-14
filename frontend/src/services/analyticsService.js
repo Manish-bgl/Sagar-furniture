@@ -35,10 +35,21 @@ export const trackSearch = (searchQuery) =>
 // ─── Admin: Real-time events listener ──────────────────────────
 export const subscribeToEvents = (callback) => {
   const q = query(collection(db, COLLECTION), orderBy('timestamp', 'desc'));
-  return onSnapshot(q, (snapshot) => {
-    const events = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-    callback(events);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const events = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      callback(events);
+    },
+    (error) => {
+      if (error.code === 'permission-denied') {
+        console.warn('Events: insufficient permissions — check admin_users collection');
+        callback([]);
+      } else {
+        console.error('Events listener error:', error);
+      }
+    }
+  );
 };
 
 // ─── Admin: Get all events once (for stats) ─────────────────────
