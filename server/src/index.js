@@ -95,6 +95,27 @@ app.listen(PORT, () => {
   console.log(`║   📡 Environment: ${(process.env.NODE_ENV || 'development').padEnd(16)}     ║`);
   console.log('╚══════════════════════════════════════════════╝');
   console.log('');
+
+  // ─── Anti-Sleep Ping (Render Free Tier) ───
+  // Render free tier sleeps after 15 min of inactivity.
+  // We self-ping every 14 min to keep the server awake.
+  if (process.env.NODE_ENV === 'production') {
+    const SELF_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
+    const PING_INTERVAL_MS = 14 * 60 * 1000; // 14 minutes
+
+    setInterval(async () => {
+      try {
+        const res = await fetch(`${SELF_URL}/api/health`);
+        const data = await res.json();
+        console.log(`🏓 Self-ping OK [${new Date().toLocaleTimeString()}] — status: ${data.status}`);
+      } catch (err) {
+        console.warn(`⚠️  Self-ping failed: ${err.message}`);
+      }
+    }, PING_INTERVAL_MS);
+
+    console.log(`🏓 Anti-sleep ping active — hitting ${SELF_URL}/api/health every 14 min`);
+  }
+
   console.log('📋 API Endpoints:');
   console.log('   GET  /api/health              — Health check');
   console.log('   POST /api/products            — Add product');
