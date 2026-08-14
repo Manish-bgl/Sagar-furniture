@@ -99,7 +99,7 @@ app.listen(PORT, () => {
   // ─── Anti-Sleep Ping (Render Free Tier) ───
   // Render free tier sleeps after 15 min of inactivity.
   // We self-ping every 14 min to keep the server awake.
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV?.trim() === 'production') {
     const SELF_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
     const PING_INTERVAL_MS = 14 * 60 * 1000; // 14 minutes
 
